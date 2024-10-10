@@ -161,3 +161,4 @@ cython_debug/
 
 # Prevent Large Image Files Uploading
 *.tif
+*.png
