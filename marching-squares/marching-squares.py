@@ -1,10 +1,9 @@
-!pip install matplotlib
+
 import matplotlib
 import matplotlib.pyplot as plt                 # This will import plotting module
 import numpy as np
 import PIL
 from PIL import Image, ImageFile
-!pip install opencv-python
 import cv2
 
 class MarchingSquares:
