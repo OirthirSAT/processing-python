@@ -18,7 +18,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Lint with flake8
-        run: flake8 .
+      - name: Lint with black
+        run: black --check --diff marching-squares/src_python
       - name: Type check with mypy
-        run: mypy --strict .
+        run: mypy --strict marching-squares/src_python
