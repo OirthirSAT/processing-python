@@ -26,6 +26,10 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
       - name: Lint with black
-        run: black --check --diff marching-squares/src_python
+        run: |
+          black --check --diff marching-squares/src_python
+          black --check --diff cloud-mask/src_python
       - name: Type check with mypy
-        run: mypy --strict marching-squares/src_python
+        run: |
+          mypy --strict marching-squares/src_python
+          mypy --strict cloud-mask/src_python
