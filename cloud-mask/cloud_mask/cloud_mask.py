@@ -2,10 +2,11 @@ import numpy as np
 from numpy.typing import NDArray
 from typing import cast
 
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 
 class CloudMask:
+
     def __init__(
         self,
         bands: NDArray[np.float64],
