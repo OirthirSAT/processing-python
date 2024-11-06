@@ -27,9 +27,9 @@ jobs:
           pip install -r requirements.txt
       - name: Lint with black
         run: |
-          black --check --diff marching-squares/src_python
-          black --check --diff cloud-mask/src_python
+          black --check --diff marching-squares/marching_squares
+          black --check --diff cloud-mask/cloud_mask
       - name: Type check with mypy
         run: |
-          mypy --strict marching-squares/src_python
-          mypy --strict cloud-mask/src_python
+          mypy --strict --implicit-reexport marching-squares/marching_squares
+          mypy --strict --implicit-reexport cloud-mask/cloud_mask
