@@ -1,41 +1,55 @@
-# type: ignore
-
 import matplotlib.pyplot as plt  # This will import plotting module
 import numpy as np
+from numpy.typing import NDArray
 import cv2
+from typing import Any, Optional
 
 
 class MarchingSquares:
-    def __init__(self, file):
-        self.file = file
-        self.image = None
-        self.result_image = None
-        self.threshold = None
-        self.state_dict = None
-        self.x_len = None
-        self.y_len = None
-        self.vectors = None
-        self.shapes = None
-        self.coastline_vector = None
+    def __init__(self, filename: str, downsample_factor: float) -> None:
+        self.filename = filename
+        self.downsample_factor = downsample_factor
+        self._reset_state
 
-    def readfile(self):
-        image_bgr = cv2.imread(self.file)
+    def _reset_state(self) -> None:
+        self.image: Optional[NDArray[np.floating[Any] | np.integer[Any]]] = None
+        self.result_image: Optional[NDArray[np.floating[Any] | np.integer[Any]]] = None
+        self.threshold: Optional[float] = None
+        self.state_dict: Optional[dict[tuple[int, int], bool]] = None
+        self.x_len: Optional[int] = None
+        self.y_len: Optional[int] = None
+        self.vectors: Optional[list[tuple[int, int]]] = None
+        self.shapes: Optional[list[list[tuple[int, int]]]] = None
+        self.coastline_vector: Optional[list[tuple[int, int]]] = None
+
+    """Reads a tif file with bgr formatting, resizes the image if necessary
+    and then converts into a hsv file using the cv2 library. """
+
+    def _readfile(self) -> None:
+        image_bgr = cv2.imread(self.filename)
 
         # If necessary for performance speed, compress the file
-        new_size = (
-            int(image_bgr.shape[0] * downsample_factor),
-            int(image_bgr.shape[1] * downsample_factor),
+        new_size: tuple[int, int] = (
+            int(image_bgr.shape[0] * self.downsample_factor),
+            int(image_bgr.shape[1] * self.downsample_factor),
         )
         image_resized = cv2.resize(image_bgr, new_size, interpolation=cv2.INTER_AREA)
 
-        # For the chosen segmentation method it has been decided to segment the image
-        # using the hue channel of a converted hsv image to distinguish between land and sea.
-
+        # For the chosen segmentation method it has been decided to segment
+        # the image using the hue channel of a converted hsv image to
+        # distinguish between land and sea.
         self.image = cv2.cvtColor(image_resized, cv2.COLOR_BGR2HSV)
 
-        return self.image
+    """Uses the Otsu segmentation method to distinguish between land and sea
+    to extract the coastline vector. This will be later replaced by the UNET
+    section of the pipeline. The Otsu threshold works by creating a histogram
+    of the hue values in the hsv image. This will result in two large broad
+    peaks in the histogram corresponding to the hue values of land more
+    oranges and greens, whereas the sea will be distinctly blue. The threshold
+    value is then the point between these two peaks. The output of this
+    function is a binary valued segmented image 0 for sea and 1 for land"""
 
-    def otsu_segmentation(self):
+    def _otsu_segmentation(self) -> None:
         hue_channel = self.image[:, :, 0]
 
         self.threshold, self.result_image = cv2.threshold(
@@ -45,17 +59,21 @@ class MarchingSquares:
             cv2.THRESH_BINARY + cv2.THRESH_OTSU,
         )
 
-        return self.result_image, self.threshold
+    """Creating a function that will weight the dictionary points such that they can be sorted from left to right starting at the bottom left."""
 
-    def sort_key(point):
+    def _sort_key(self, point: tuple[int, int]) -> int:
         return point[1] * 100 + point[0]
 
-    def point_array(self):
-        black = []
-        white = []
+    """This extracts the points from the image and stores them in a dictionary with each point either corresponding to black or white. 
+     The coordinates are doubled and incresed by one as vector lines will be drawn halfway between these points. 
+     This can be changed to match the original resolution of the image, however vectors will then be made of floating point coordinates.  """
 
-        x = self.result_image.shape[0] - 1
-        y = self.result_image.shape[1] - 1
+    def _point_array(self) -> None:
+        black: list[int, int] = []
+        white: list[int, int] = []
+
+        x: list[int] = self.result_image.shape[0] - 1
+        y: list[int] = self.result_image.shape[1] - 1
 
         for i in range(x + 1):
             for j in range(y + 1):
@@ -67,32 +85,48 @@ class MarchingSquares:
         black = np.array(black) * 2 + 1
         white = np.array(white) * 2 + 1
 
-        xblack = [point[0] for point in black]
-        yblack = [point[1] for point in black]
+        xblack: list[int] = [point[0] for point in black]
+        yblack: list[int] = [point[1] for point in black]
 
-        xwhite = [point[0] for point in white]
-        ywhite = [point[1] for point in white]
+        xwhite: list[int] = [point[0] for point in white]
+        ywhite: list[int] = [point[1] for point in white]
 
-        state = {tuple(point): True for point in black}
+        state: dict[tuple[int, int], bool] = {tuple(point): True for point in black}
         state.update({tuple(point): False for point in white})
-        sorted_dict = sorted(state.items(), key=lambda x: sort_key(x[0]))
+        sorted_dict: list[tuple[tuple[int, int], bool]] = sorted(
+            state.items(), key=lambda x: self._sort_key(x[0])
+        )
         self.state_dict = dict(sorted_dict)
 
         self.x_len = max(xblack + xwhite)
         self.y_len = max(yblack + ywhite)
 
-        return self.state_dict, self.x_len, self.y_len
+    """Splitting the point array space into squares 1 pixel wide. These squares have corners lying on either a black or white point. 
+    The square as a whole adopts a value through the marching squares method, for a square centred at (2,2) it is corners at A(1,1),B(3,1),C(1,3) and D(3,3). 
+    Associating each of these corners with a binary weighting value A:2^0, B:2^2, C:2^3, D:2^4 and then summing these values multiplied by either 0 or 1
+    dependeing on the state of the point they sit on 1 for white and 0 for black will produce a value from 0 to 15. Each of these values coresponds to a line shape 
+    which will be used to create a coastline vector."""
 
-    def get_value(i, j, state_dict):
-        A = int(state_dict[(i, j)])
-        B = int(state_dict[(i + 2, j)])
-        C = int(state_dict[(i, j + 2)])
-        D = int(state_dict[(i + 2, j + 2)])
+    def _get_value(self, i: int, j: int) -> int:
+        A = int(self.state_dict[(i, j)])
+        B = int(self.state_dict[(i + 2, j)])
+        C = int(self.state_dict[(i, j + 2)])
+        D = int(self.state_dict[(i + 2, j + 2)])
         return A + B * 2 + C * 4 + D * 8
 
-    def generate_edges(i, j, index):
+    """Generates the line associated with the index of the square. This is done by outputting a start and end point for a line. 
+    Indexes of 6 and 9 are special in that two lines are created."""
+
+    def _generate_edges(
+        self, i: int, j: int, index: int
+    ) -> list[tuple[tuple[int, int]]]:
+        x: int
+        y: int
         x, y = i, j
-        vector = []
+        vector: list[tuple[tuple[int, int], tuple[int, int]]] = []
+        start: tuple[int, int]
+        end: tuple[int, int]
+
         if index == 0 or index == 15:
             return
         elif index == 1 or index == 14:
@@ -136,111 +170,115 @@ class MarchingSquares:
 
         return vector
 
-    def list_vectors(self):
+    def _list_vectors(self) -> None:
 
-        vectors = []
-
+        vectors: list[tuple[int, int], tuple[int, int]] = []
+        i: int
+        j: int
         for j in range(1, self.y_len, 2):
 
             for i in range(1, self.x_len, 2):
 
-                index = get_value(i, j, self.state_dict)
+                index: int = self._get_value(i, j)
 
                 if index == 6 or index == 9:
 
-                    double_vec = generate_edges(i, j, index)
+                    double_vec: list[tuple[tuple[int, int], tuple[int, int]]] = (
+                        self._generate_edges(i, j, index)
+                    )
                     vectors.append([double_vec[0]])
                     vectors.append([double_vec[1]])
 
                 else:
 
-                    vectors.append(generate_edges(i, j, index))
+                    vectors.append(self._generate_edges(i, j, index))
 
         self.vectors = [x for x in vectors if x is not None]  # filtering None values
 
-        return self.vectors
+    """The purpose of this funciton is to connect all adjacent vector lines to create one long "coastline vector". 
+    This is done by creating a set of the vector lines from the previous function. The first in this set is popped out and the start and end points 
+    are added to a shape vector. The set vectors_to_remove is then looped through until the start or end point of one of these vectors "matches" the start or end point of the popped vector.
+    The matched vector is then added to the shape vector, for example if the start point of the popped vector matched the end point of the matched vector then the start coordinate of the matched vector
+    will be added to the shape array. This is then repeated with the new start and end vector of the shape until there is no match. 
+    In this circumstance, the shape is appended to a "shapes" array and a new shape is created and the process repeats until there are no vectors left to remove. At the end of this function, the shapes are ordered dependeing on their size. 
+    The main coastline vector will be the longest whereas there will be shorter vectors corresponding to islands.
+    """
 
-    def vector_shapes(self):
-        # Initialize empty list to store shapes
-        shapes = []
-
-        # Initialize set to keep track of indices of vectors that need to be removed
-        indices_to_remove = set(range(len(self.vectors)))
-
-        # Iterate until there are no more vectors to process
-        while indices_to_remove:
-            # Initialize a new shape
-            shape = []
+    def _vector_shapes(self) -> None:
+        shapes: list[list[tuple[int, int]]] = []
+        vectors_to_remove: set[int] = set(range(len(self.vectors)))
+        while vectors_to_remove:
+            shape: list[tuple[int, int]] = []
 
             # Get the first vector and extract the tuple of points
-            vector = self.vectors[indices_to_remove.pop()][
-                0
-            ]  # Get the tuple from the list
-            start_point, end_point = vector  # Unpack the tuple
+            vector: list[tuple[int, int]] = self.vectors[vectors_to_remove.pop()][0]
+
+            start_point: tuple[int, int]
+            end_point: tuple[int, int]
+
+            start_point, end_point = vector
 
             # Add the start and end points to the shape
             shape.extend([start_point, end_point])
+            matched: bool = True
 
-            # Flag to check if a match is found
-            matched = True
-
-            # Continue until no more matches are found
             while matched:
-                # Reset match flag
+
                 matched = False
-                # Iterate through indices of vectors to remove
-                for idx in list(indices_to_remove):
-                    # Get the vector at the current index and extract the tuple of points
-                    vec = self.vectors[idx][0]  # Extract the tuple
+
+                idx: int
+
+                for idx in list(vectors_to_remove):
+
+                    vec: list[tuple[int, int]] = self.vectors[idx][0]
 
                     # Check if the vector connects to the shape
                     if vec[0] == end_point:
-                        # Append the matching vector's end point
+                        # append to end point
                         end_point = vec[1]
                         shape.append(end_point)
-                        indices_to_remove.remove(idx)
+                        vectors_to_remove.remove(idx)
                         matched = True
                         break
                     elif vec[1] == end_point:
-                        # Append the matching vector's start point (reverse match)
+                        # append to start point
                         end_point = vec[0]
                         shape.append(end_point)
-                        indices_to_remove.remove(idx)
+                        vectors_to_remove.remove(idx)
                         matched = True
                         break
                     elif vec[0] == start_point:
-                        # If the start of the shape matches a vector, prepend it
+
                         start_point = vec[1]
                         shape.insert(
                             0, start_point
                         )  # Add to the beginning of the shape
-                        indices_to_remove.remove(idx)
+                        vectors_to_remove.remove(idx)
                         matched = True
                         break
                     elif vec[1] == start_point:
-                        # If the start of the shape matches a reversed vector, prepend it
+                        # If the start of the shape matches a reversed vector prepend it
                         start_point = vec[0]
                         shape.insert(0, start_point)
-                        indices_to_remove.remove(idx)
+                        vectors_to_remove.remove(idx)
                         matched = True
                         break
 
-            # Add the completed shape to the list of shapes
             shapes.append(shape)
 
         self.shapes = sorted(shapes, key=lambda shape: len(shape), reverse=True)
 
-        return self.shapes
+    """This is the plotting function that will plot the main coastline vector. The range of the for loop can be changed to plot any islands as well."""
 
-    def show_coastline(self):
+    def _show_coastline(self) -> None:
 
         plt.figure(figsize=(10, 5))
         plt.subplot(1, 2, 1)
         plt.title("Coastline Vector Extracted")
         for i in range(1):
-            coastline_vector = self.shapes[i]
-            xcoords = []
-            ycoords = []
+            coastline_vector: list[tuple[int, int]] = self.shapes[i]
+            xcoords: list[tuple[int, int]] = []
+            ycoords: list[tuple[int, int]] = []
             for point in coastline_vector:
                 xcoords.append(point[0])
                 ycoords.append(point[1])
@@ -256,16 +294,12 @@ class MarchingSquares:
         plt.show()
         self.coastline_vector = self.shapes[0]
 
-        return self.coastline_vector
+    def run(self, file) -> None:
+        self.file = file
 
-    def run(self):
-        readfile(self)
-        otsu_segmentation(self)
-        point_array(self)
-        list_vectors(self)
-        vector_shapes(self)
-        coastline_vector(self)
-
-
-Aberdeenshire = MarchingSquares("Aberdeenshire.tif")
-Aberdeenshire.run()
+        self._readfile()
+        self._otsu_segmentation()
+        self._point_array()
+        self._list_vectors()
+        self._vector_shapes()
+        self._show_coastline()
