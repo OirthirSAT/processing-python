@@ -1,6 +1,5 @@
 matplotlib
 numpy
-nptyping
 Pillow
 opencv-python
 scikit-image
