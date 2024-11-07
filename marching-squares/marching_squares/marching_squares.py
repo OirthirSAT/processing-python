@@ -334,6 +334,7 @@ class MarchingSquares:
         plt.imshow(cv2.cvtColor(self.image, cv2.COLOR_HSV2RGB))
         plt.axis("off")
 
+        plt.savefig("out.png")
         plt.show()
         self.coastline_vector = self.shapes[0]
 
@@ -346,3 +347,11 @@ class MarchingSquares:
         self._list_vectors()
         self._vector_shapes()
         self._show_coastline()
+
+
+file: str = (
+    "/Users/jazzymaxine/Workspace/OirthirSAT/image-processing-pipeline/marching-squares/marching_squares/Aberdeenshire.tif"
+)
+downsample_factor: float = 0.05
+Aberdeenshire: MarchingSquares = MarchingSquares(file, downsample_factor)
+Aberdeenshire.run(file)
