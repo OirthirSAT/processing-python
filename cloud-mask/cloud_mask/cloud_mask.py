@@ -1,6 +1,6 @@
 import numpy as np
 from numpy.typing import NDArray
-from typing import cast
+from typing import Any, cast
 
 import matplotlib.pyplot as plt
 
@@ -9,7 +9,7 @@ class CloudMask:
 
     def __init__(
         self,
-        bands: NDArray[np.float64],
+        bands: NDArray[np.floating[Any]],
         ndsi_threshold: float = 0.3,
         brightness_threshold: float = 0.5,
         thermal_threshold: float = 0.5,  # example threshold
@@ -33,15 +33,15 @@ class CloudMask:
         self.brightness_threshold = brightness_threshold
         self.thermal_threshold = thermal_threshold
 
-    def __compute_ndsi(self) -> NDArray[np.float64]:
+    def __compute_ndsi(self) -> NDArray[np.floating[Any]]:
         return cast(
-            NDArray[np.float64],
+            NDArray[np.floating[Any]],
             (self.__band1 - self.__band2) / (self.__band1 + self.__band2),
         )
 
-    def __compute_brightness(self) -> NDArray[np.float64]:
+    def __compute_brightness(self) -> NDArray[np.floating[Any]]:
         return cast(
-            NDArray[np.float64],
+            NDArray[np.floating[Any]],
             (self.__band1 + self.__band2 + self.__band3 + self.__band4) / 3,
         )
 
