@@ -85,3 +85,14 @@ class CloudMask:
             & (brightness > self.brightness_threshold)
             & (self.__band3 > self.thermal_threshold),
         )
+    
+    def cloud_cover_fraction(
+        self,
+        cloud_mask: NDArray[np.bool]
+    ) -> float:
+        """Compute the fraction of cloud_mask is covered in cloud.
+        
+        Take an existing cloud mask and compute what fraction is cloud. It is
+        assumed clouded pixels are True, non-clouded pixels are False.
+        """
+        return cloud_mask.sum() / cloud_mask.size
