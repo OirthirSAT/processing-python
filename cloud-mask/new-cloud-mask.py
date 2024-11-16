@@ -1,9 +1,7 @@
 #Installing packages and libraries
-!pip install numpy matplotlib scikit-image
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage import exposure
-!pip install opencv-python
 import cv2
 from typing import Tuple
 
