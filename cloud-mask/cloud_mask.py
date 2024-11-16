@@ -148,9 +148,9 @@ class CloudMask:
         masked_image = np.array(
             np.dstack(bands), dtype=float
         )  # Shape: (rows, columns, bands). Convert to float to allow NaN values.
-        masked_image[
-            cloud_mask, :
-        ] = np.nan  # Set pixels where cloud_mask is False to NaN
+        masked_image[cloud_mask, :] = (
+            np.nan
+        )  # Set pixels where cloud_mask is False to NaN
         return masked_image
 
     @staticmethod
