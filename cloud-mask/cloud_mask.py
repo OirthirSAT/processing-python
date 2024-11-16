@@ -39,12 +39,12 @@ class CloudMask:
         self.brightness_threshold = brightness_threshold
         self.thermal_threshold = thermal_threshold
 
-        if bands:
+        if bands is not None:
             self.__band_red = bands[0]
             self.__band_green = bands[1]
             self.__band_blue = bands[2]
             self.__band_nir = bands[3]
-        elif tif_path:
+        elif tif_path is not None:
             self.__band_red, self.__band_green, self.__band_blue, self.__band_nir = self.__readfile(tif_path, self.downsample_factor)
         else:
             raise ValueError("Cannot initialise CloudMask: no bands data or tif file path specified.")
@@ -109,7 +109,7 @@ class CloudMask:
             NDArray[np.bool_],
             (ndsi >= self.ndsi_threshold)
             & (brightness >= self.brightness_threshold)
-            & (self.__band_blue >= self.thermal_threshold),
+            & (self.__band_nir >= self.thermal_threshold),
         )
     
     def apply_cloud_mask(self, cloud_mask: NDArray[np.bool_]) -> NDArray[np.floating[Any]]:
@@ -138,11 +138,13 @@ class CloudMask:
         return cloud_mask.sum() / cloud_mask.size
 
 # Loading image bands and creating cloud mask, then visualizing results
-file: str = "../../marching-squares/Aberdeenshire.tif"
 
-cloud_masker = CloudMask(tif_path=file, downsample_factor=0.1, ndsi_threshold=1.0)
+if __name__ == "__main__":
+    file: str = "../../marching-squares/Aberdeenshire.tif"
 
-cloud_mask: NDArray[np.bool_] = cloud_masker.create_cloud_mask()
-image: NDArray[np.floating[Any]] = cloud_masker.apply_cloud_mask(cloud_mask=cloud_mask)
-print(f"Cloud Cover: {CloudMask.cloud_cover_fraction(cloud_mask)*100:.3f}%")
-CloudMask.visualise_image(image)
+    cloud_masker = CloudMask(tif_path=file, downsample_factor=0.1, ndsi_threshold=1.0)
+
+    cloud_mask: NDArray[np.bool_] = cloud_masker.create_cloud_mask()
+    image: NDArray[np.floating[Any]] = cloud_masker.apply_cloud_mask(cloud_mask=cloud_mask)
+    print(f"Cloud Cover: {CloudMask.cloud_cover_fraction(cloud_mask)*100:.3f}%")
+    CloudMask.visualise_image(image)
