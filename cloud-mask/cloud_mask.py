@@ -63,7 +63,9 @@ class CloudMask:
         image_bgr: NDArray[np.uint8] = cv2.imread(file)
 
         if image_bgr is None:
-            raise FileNotFoundError(f"Could not load file '{file}'. Check file exists and is of '.tif' format.")
+            raise FileNotFoundError(
+                f"Could not load file '{file}'. Check file exists and is of '.tif' format."
+            )
 
         # Compressing file for speed
         new_size: Tuple[int, int] = (
@@ -79,7 +81,9 @@ class CloudMask:
         band_green: NDArray[np.uint8] = image_resized[:, :, 1]
         band_blue: NDArray[np.uint8] = image_resized[:, :, 0]
         band_nir: NDArray[np.uint8] = np.zeros_like(band_red)
-        warnings.warn("Importing NIR channel from .tif not implemented. Setting band to 0s. This could cause unexpected masking results.")
+        warnings.warn(
+            "Importing NIR channel from .tif not implemented. Setting band to 0s. This could cause unexpected masking results."
+        )
 
         return band_red, band_green, band_blue, band_nir
 
@@ -144,9 +148,9 @@ class CloudMask:
         masked_image = np.array(
             np.dstack(bands), dtype=float
         )  # Shape: (rows, columns, bands). Convert to float to allow NaN values.
-        masked_image[cloud_mask, :] = (
-            np.nan
-        )  # Set pixels where cloud_mask is False to NaN
+        masked_image[
+            cloud_mask, :
+        ] = np.nan  # Set pixels where cloud_mask is False to NaN
         return masked_image
 
     @staticmethod
@@ -174,7 +178,9 @@ if __name__ == "__main__":
 
     # Aberdenshire.tif does not have a NIR channel. This is automatically initialised to 0, so thresholds
     # need adjusted from sensible values to make test work.
-    cloud_masker = CloudMask(tif_path=file, downsample_factor=0.1, ndsi_threshold=1.0, thermal_threshold=0.0)
+    cloud_masker = CloudMask(
+        tif_path=file, downsample_factor=0.1, ndsi_threshold=1.0, thermal_threshold=0.0
+    )
 
     cloud_mask: NDArray[np.bool_] = cloud_masker.create_cloud_mask()
     image: NDArray[np.floating[Any]] = cloud_masker.apply_cloud_mask(
