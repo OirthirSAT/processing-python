@@ -2,7 +2,6 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
-from skimage import exposure
 from typing import Any, cast, Tuple
 
 
