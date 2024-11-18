@@ -28,12 +28,12 @@ jobs:
       - name: Lint with black
         run: |
           black --check --diff marching-squares/marching_squares
-          black --check --diff cloud-mask
+          black --check --diff cloud_mask
       - name: Type check with mypy
         run: |
           mypy --strict --implicit-reexport marching-squares/marching_squares
-          mypy --strict --implicit-reexport cloud-mask
+          mypy --strict --implicit-reexport cloud_mask
       - name: Test with unittest
         run: |
           python -m unittest discover -s marching-squares/marching_squares -p 'test_*.py'
-          python -m unittest discover -s cloud-mask -p 'test_*.py'
+          python -m unittest discover -s cloud_mask -p 'test_*.py'
