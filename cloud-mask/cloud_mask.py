@@ -69,11 +69,9 @@ class CloudMask:
             int(image_bgr.shape[1] * downsample_factor),
         )
 
-        image_resized: NDArray[np.uint8] = cast (
+        image_resized: NDArray[np.uint8] = cast(
             NDArray[np.uint8],
-            cv2.resize(
-                image_bgr, new_size, interpolation=cv2.INTER_AREA
-            ),
+            cv2.resize(image_bgr, new_size, interpolation=cv2.INTER_AREA),
         )
 
         band_red: NDArray[np.uint8] = image_resized[:, :, 2]
