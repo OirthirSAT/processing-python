@@ -10,7 +10,7 @@ class CloudMask:
     def __init__(
         self,
         bands: NDArray[np.uint8] | None = None,
-        tif_path: str = None,
+        tif_path: str | None = None,
         downsample_factor: float = 0.1,
         ndsi_threshold: float = 0.3,
         brightness_threshold: float = 0.5,
@@ -58,8 +58,8 @@ class CloudMask:
         NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8]
     ]:
         """Load image bands from BGR image file"""
-        image_bgr: NDArray[np.uint8] = cast(np.uint8, cv2.imread(file))
-
+        image_bgr: NDArray[np.uint8] = cast(NDArray[np.uint8], cv2.imread(file))
+        print(NDArray[np.uint8])
         if image_bgr is None:
             raise FileNotFoundError(
                 f"Could not load file '{file}'. Check file exists and is of '.tif' format."
@@ -153,7 +153,7 @@ class CloudMask:
         return masked_image
 
     @staticmethod
-    def visualise_image(image: NDArray[np.uint8]) -> None:
+    def visualise_image(image: NDArray[np.floating[Any]]) -> None:
         plt.figure(figsize=(10, 10))
         plt.imshow(
             image.astype(np.uint8)[:, :, :3]
