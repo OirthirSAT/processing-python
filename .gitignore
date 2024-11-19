@@ -163,3 +163,4 @@ cython_debug/
 *.tif
 *.png
 *.venv
+*__pycache__/
