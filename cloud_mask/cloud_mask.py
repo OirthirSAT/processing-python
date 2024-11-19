@@ -54,7 +54,9 @@ class CloudMask:
 
     def _readfile(
         self, file: str, downsample_factor: float
-    ) -> Tuple[NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8]]:
+    ) -> Tuple[
+        NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8]
+    ]:
         """Load image bands from BGR image file"""
         image_bgr: NDArray[np.uint8] = cast(np.uint8, cv2.imread(file))
 
@@ -165,10 +167,7 @@ class CloudMask:
         Take an existing cloud mask and compute what fraction is cloud. It is
         assumed clouded pixels are True, non-clouded pixels are False.
         """
-        return cast(
-            float,
-            cloud_mask.sum() / cloud_mask.size
-        )
+        return cast(float, cloud_mask.sum() / cloud_mask.size)
 
 
 # Loading image bands and creating cloud mask, then visualizing results
