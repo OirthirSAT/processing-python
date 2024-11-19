@@ -54,9 +54,9 @@ class CloudMask:
 
     def _readfile(
         self, file: str, downsample_factor: float
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8]]:
         """Load image bands from BGR image file"""
-        image_bgr: NDArray[np.uint8] = cv2.imread(file)
+        image_bgr: NDArray[np.uint8] = cast(np.uint8, cv2.imread(file))
 
         if image_bgr is None:
             raise FileNotFoundError(
@@ -151,7 +151,7 @@ class CloudMask:
         return masked_image
 
     @staticmethod
-    def visualise_image(image: NDArray[np.uint8]):
+    def visualise_image(image: NDArray[np.uint8]) -> None:
         plt.figure(figsize=(10, 10))
         plt.imshow(
             image.astype(np.uint8)[:, :, :3]
@@ -165,13 +165,16 @@ class CloudMask:
         Take an existing cloud mask and compute what fraction is cloud. It is
         assumed clouded pixels are True, non-clouded pixels are False.
         """
-        return cloud_mask.sum() / cloud_mask.size
+        return cast(
+            float,
+            cloud_mask.sum() / cloud_mask.size
+        )
 
 
 # Loading image bands and creating cloud mask, then visualizing results
 
 if __name__ == "__main__":
-    file: str = "../marching-squares/Aberdeenshire.tif"
+    file: str = "../marching_squares/Aberdeenshire.tif"
 
     # Aberdenshire.tif does not have a NIR channel. This is automatically initialised to 0, so thresholds
     # need adjusted from sensible values to make test work.
