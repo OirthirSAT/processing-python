@@ -187,32 +187,29 @@ class MarchingSquares:
 
         return vector
 
-    def _list_vectors(self) -> None:
-        if self.y_len is None:
-            raise ValueError("Cannot list vectors when self.y_len is None.")
-        if self.x_len is None:
-            raise ValueError("Cannot list vectors when self.x_len is None.")
+    @staticmethod
+    def _list_vectors(state_dict: dict[_POINT, bool], x_len: int, y_len: int) -> list[list[_VECTOR]]:
 
         vectors: list[list[_VECTOR] | None] = []
         i: int
         j: int
-        for j in range(1, self.y_len, 2):
+        for j in range(1, y_len, 2):
 
-            for i in range(1, self.x_len, 2):
+            for i in range(1, x_len, 2):
 
-                index: int = self._get_value(i, j)
+                index: int = MarchingSquares._get_value(state_dict, i, j)
 
                 if index == 6 or index == 9:
 
-                    double_vec: list[_VECTOR] | None = self._generate_edges(i, j, index)
+                    double_vec: list[_VECTOR] | None = MarchingSquares._generate_edges(i, j, index)
                     if double_vec:
                         vectors.append([double_vec[0]])
                         vectors.append([double_vec[1]])
 
                 else:
-                    vectors.append(self._generate_edges(i, j, index))
+                    vectors.append(MarchingSquares._generate_edges(i, j, index))
 
-        self.vectors = [x for x in vectors if x is not None]  # filtering None values
+        return [x for x in vectors if x is not None]  # filtering None values
 
     def _vector_shapes(self) -> None:
         """The purpose of this funciton is to connect all adjacent vector lines to
