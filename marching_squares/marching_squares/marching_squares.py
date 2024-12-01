@@ -110,7 +110,7 @@ class MarchingSquares:
             state.items(), key=lambda x: MarchingSquares._sort_key(x[0])
         )
 
-        return (dict(sorted_dict),  max(xblack + xwhite), max(yblack + ywhite))
+        return (dict(sorted_dict), max(xblack + xwhite), max(yblack + ywhite))
 
     @staticmethod
     def _get_value(state_dict: dict[_POINT, bool], i: int, j: int) -> int:
@@ -188,7 +188,9 @@ class MarchingSquares:
         return vector
 
     @staticmethod
-    def _list_vectors(state_dict: dict[_POINT, bool], x_len: int, y_len: int) -> list[list[_VECTOR]]:
+    def _list_vectors(
+        state_dict: dict[_POINT, bool], x_len: int, y_len: int
+    ) -> list[list[_VECTOR]]:
 
         vectors: list[list[_VECTOR] | None] = []
         i: int
@@ -201,7 +203,9 @@ class MarchingSquares:
 
                 if index == 6 or index == 9:
 
-                    double_vec: list[_VECTOR] | None = MarchingSquares._generate_edges(i, j, index)
+                    double_vec: list[_VECTOR] | None = MarchingSquares._generate_edges(
+                        i, j, index
+                    )
                     if double_vec:
                         vectors.append([double_vec[0]])
                         vectors.append([double_vec[1]])
@@ -294,7 +298,9 @@ class MarchingSquares:
         return sorted(shapes, key=lambda shape: len(shape), reverse=True)
 
     @staticmethod
-    def _show_coastline(image: _NUMERIC_ARRAY, shapes: list[list[_POINT]], x_len: int, y_len: int) -> list[_POINT]:
+    def _show_coastline(
+        image: _NUMERIC_ARRAY, shapes: list[list[_POINT]], x_len: int, y_len: int
+    ) -> list[_POINT]:
         """This is the plotting function that will plot the main coastline vector. The
         range of the for loop can be changed to plot any islands as well.
         """
@@ -323,7 +329,7 @@ class MarchingSquares:
 
     @staticmethod
     def run(file: str, downsample_factor: float = 1) -> None:
-        
+
         image = MarchingSquares._readfile(file, downsample_factor)
         _, threshold_image = MarchingSquares._otsu_segmentation(image)
         state_dict, x_len, y_len = MarchingSquares._point_array(threshold_image)
