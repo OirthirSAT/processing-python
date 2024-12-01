@@ -66,7 +66,8 @@ class MarchingSquares:
             cv2.THRESH_BINARY + cv2.THRESH_OTSU,
         )
 
-    def _sort_key(self, point: _POINT) -> int:
+    @staticmethod
+    def _sort_key(point: _POINT) -> int:
         """Creating a function that will weight the dictionary points such that they
         can be sorted from left to right starting at the bottom left.
         """
