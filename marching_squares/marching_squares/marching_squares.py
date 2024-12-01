@@ -211,7 +211,8 @@ class MarchingSquares:
 
         return [x for x in vectors if x is not None]  # filtering None values
 
-    def _vector_shapes(self) -> None:
+    @staticmethod
+    def _vector_shapes(vectors: list[list[_VECTOR]]) -> list[list[_POINT]]:
         """The purpose of this funciton is to connect all adjacent vector lines to
         create one long "coastline vector". This is done by creating a set of the
         vector lines from the previous function. The first in this set is popped out
@@ -228,16 +229,14 @@ class MarchingSquares:
         size. The main coastline vector will be the longest whereas there will be
         shorter vectors corresponding to islands.
         """
-        if self.vectors is None:
-            raise ValueError(f"Cannot connect vectors if self.vectors is None.")
 
         shapes: list[list[_POINT]] = []
-        vectors_to_remove: set[int] = set(range(len(self.vectors)))
+        vectors_to_remove: set[int] = set(range(len(vectors)))
         while vectors_to_remove:
             shape: list[_POINT] = []
 
             # Get the first vector and extract the tuple of points
-            vector: _VECTOR = self.vectors[vectors_to_remove.pop()][0]
+            vector: _VECTOR = vectors[vectors_to_remove.pop()][0]
 
             start_point: _POINT
             end_point: _POINT
@@ -256,7 +255,7 @@ class MarchingSquares:
 
                 for idx in list(vectors_to_remove):
 
-                    vec: _VECTOR = self.vectors[idx][0]
+                    vec: _VECTOR = vectors[idx][0]
 
                     # Check if the vector connects to the shape
                     if vec[0] == end_point:
@@ -292,7 +291,7 @@ class MarchingSquares:
 
             shapes.append(shape)
 
-        self.shapes = sorted(shapes, key=lambda shape: len(shape), reverse=True)
+        return sorted(shapes, key=lambda shape: len(shape), reverse=True)
 
     def _show_coastline(self) -> None:
         """This is the plotting function that will plot the main coastline vector. The
