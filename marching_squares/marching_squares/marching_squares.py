@@ -131,7 +131,8 @@ class MarchingSquares:
         D = int(state_dict[(i + 2, j + 2)])
         return A + B * 2 + C * 4 + D * 8
 
-    def _generate_edges(self, i: int, j: int, index: int) -> list[_VECTOR] | None:
+    @staticmethod
+    def _generate_edges(i: int, j: int, index: int) -> list[_VECTOR] | None:
         """Generates the line associated with the index of the square. This is done by
         outputting a start and end point for a line. Indexes of 6 and 9 are special in
         that two lines are created.
