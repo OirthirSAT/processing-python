@@ -336,6 +336,3 @@ class MarchingSquares:
         vectors = MarchingSquares._list_vectors(state_dict, x_len, y_len)
         shapes = MarchingSquares._vector_shapes(vectors)
         _ = MarchingSquares._show_coastline(image, shapes, x_len, y_len)
-
-
-MarchingSquares.run("marching_squares/marching_squares/Aberdeenshire_S2_20220810_TCI.tif", 0.05)
