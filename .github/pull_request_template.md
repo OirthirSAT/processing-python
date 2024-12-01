@@ -1,6 +1,6 @@
 ## Overview
 
-<!-- Describe in detail what your merge request does and why.
+<!-- Describe in detail what your pull request does and why.
 
 Please keep this description updated with any discussion that takes place so
 that reviewers can understand your intent. Keeping the description updated is
@@ -49,7 +49,7 @@ Also, add any related issues using #(issue number).
 
 ## Screenshots or Screen Recordings
 
-<!-- Screenshots are required for UI changes, and strongly recommended for all other merge requests if they create a visible change on the product or output.
+<!-- Screenshots are required for UI changes, and strongly recommended for all other pull requests if they create a visible change on the product or output.
 
 Please include any relevant screenshots or screen recordings that will assist
 reviewers and future readers.
