@@ -28,23 +28,24 @@ class MarchingSquares:
         self.shapes: Optional[list[list[_POINT]]] = None
         self.coastline_vector: Optional[list[_POINT]] = None
 
-    def _readfile(self) -> None:
+    @staticmethod
+    def _readfile(filename: str, downsample_factor: float) -> _NUMERIC_ARRAY:
         """Reads a tif file with bgr formatting, resizes the image if necessary and
         then converts into a hsv file using the cv2 library.
         """
-        image_bgr = cv2.imread(self.filename)
+        image_bgr = cv2.imread(filename)
 
         # If necessary for performance speed, compress the file
         new_size: _POINT = (
-            int(image_bgr.shape[0] * self.downsample_factor),
-            int(image_bgr.shape[1] * self.downsample_factor),
+            int(image_bgr.shape[0] * downsample_factor),
+            int(image_bgr.shape[1] * downsample_factor),
         )
         image_resized = cv2.resize(image_bgr, new_size, interpolation=cv2.INTER_AREA)
 
         # For the chosen segmentation method it has been decided to segment
         # the image using the hue channel of a converted hsv image to
         # distinguish between land and sea.
-        self.image = cv2.cvtColor(image_resized, cv2.COLOR_BGR2HSV)
+        return cv2.cvtColor(image_resized, cv2.COLOR_BGR2HSV)
 
     def _otsu_segmentation(self) -> None:
         """Uses the Otsu segmentation method to distinguish between land and sea to
