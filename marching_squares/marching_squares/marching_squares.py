@@ -321,12 +321,12 @@ class MarchingSquares:
         plt.show()
         return shapes[0]
 
-    def run(self, file: str) -> None:
-        self.file = file
-
-        self._readfile()
-        self._otsu_segmentation()
-        self._point_array()
-        self._list_vectors()
-        self._vector_shapes()
-        self._show_coastline()
+    @staticmethod
+    def run(file: str, downsample_factor: float = 1) -> None:
+        
+        image = MarchingSquares._readfile(file, downsample_factor)
+        _, image = MarchingSquares._otsu_segmentation(image)
+        state_dict, x_len, y_len = MarchingSquares._point_array(image)
+        vectors = MarchingSquares._list_vectors(state_dict, x_len, y_len)
+        shapes = MarchingSquares._vector_shapes(vectors)
+        _ = MarchingSquares._show_coastline(image, shapes, x_len, y_len)
