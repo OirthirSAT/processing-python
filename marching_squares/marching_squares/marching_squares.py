@@ -293,36 +293,33 @@ class MarchingSquares:
 
         return sorted(shapes, key=lambda shape: len(shape), reverse=True)
 
-    def _show_coastline(self) -> None:
+    @staticmethod
+    def _show_coastline(image: _NUMERIC_ARRAY, shapes: list[list[_POINT]], x_len: int, y_len: int) -> list[_POINT]:
         """This is the plotting function that will plot the main coastline vector. The
         range of the for loop can be changed to plot any islands as well.
         """
-        if self.shapes is None:
-            raise ValueError("Cannot show coastline when self.shapes is None.")
-        if self.image is None:
-            raise ValueError("Cannot show coastline when self.image is None.")
 
         plt.figure(figsize=(10, 5))
         plt.subplot(1, 2, 1)
         plt.title("Coastline Vector Extracted")
         for i in range(1):
-            coastline_vector: list[_POINT] = self.shapes[i]
+            coastline_vector: list[_POINT] = shapes[i]
             xcoords: list[int] = []
             ycoords: list[int] = []
             for point in coastline_vector:
                 xcoords.append(point[0])
                 ycoords.append(point[1])
             plt.plot(xcoords, ycoords, linewidth=1)
-        plt.xlim((0, self.x_len))
-        plt.ylim((0, self.y_len))
+        plt.xlim((0, x_len))
+        plt.ylim((0, y_len))
 
         plt.subplot(1, 2, 2)
         plt.title("Original Image")
-        plt.imshow(cv2.cvtColor(self.image, cv2.COLOR_HSV2RGB))
+        plt.imshow(cv2.cvtColor(image, cv2.COLOR_HSV2RGB))
         plt.axis("off")
 
         plt.show()
-        self.coastline_vector = self.shapes[0]
+        return shapes[0]
 
     def run(self, file: str) -> None:
         self.file = file
