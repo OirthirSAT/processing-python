@@ -8,6 +8,7 @@ from marching_squares import MarchingSquares
 _IMAGE_SHAPE = (512, 512, 4)
 _RANDOM_IMAGE = np.random.uniform(low=0, high=256, size=_IMAGE_SHAPE).astype(np.uint8)
 
+
 class MarchingSquaresTests(unittest.TestCase):
 
     def test_no_runtime_errors(self) -> None:
