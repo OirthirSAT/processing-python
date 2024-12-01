@@ -74,7 +74,7 @@ class MarchingSquares:
         return point[1] * 100 + point[0]
 
     @staticmethod
-    def _point_array(image: _NUMERIC_ARRAY) -> tuple[dict[tuple[_POINT, bool]], int, int]:
+    def _point_array(image: _NUMERIC_ARRAY) -> tuple[dict[_POINT, bool], int, int]:
         """This extracts the points from the image and stores them in a dictionary with
         each point either corresponding to black or white. The coordinates are doubled
         and incresed by one as vector lines will be drawn halfway between these points.
@@ -325,14 +325,8 @@ class MarchingSquares:
     def run(file: str, downsample_factor: float = 1) -> None:
         
         image = MarchingSquares._readfile(file, downsample_factor)
-        _, image = MarchingSquares._otsu_segmentation(image)
-        state_dict, x_len, y_len = MarchingSquares._point_array(image)
+        _, threshold_image = MarchingSquares._otsu_segmentation(image)
+        state_dict, x_len, y_len = MarchingSquares._point_array(threshold_image)
         vectors = MarchingSquares._list_vectors(state_dict, x_len, y_len)
         shapes = MarchingSquares._vector_shapes(vectors)
         _ = MarchingSquares._show_coastline(image, shapes, x_len, y_len)
-
-
-import os
-
-print(os.path.dirname(__file__) + "/Aberdeenshire_S2_20220810_TCI.tif")
-MarchingSquares.run(os.path.dirname(__file__) + "/Aberdeenshire_S2_20220810_TCI.tif")
