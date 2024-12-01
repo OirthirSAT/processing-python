@@ -10,24 +10,31 @@ assignees: ''
 
 ## Overview
 
-(General explanation of the bug, including some context and how it arises, describe why this bug fix is necessary.)
+<!-- Summarise the bug encountered concicely, and describe why this bug fix is necessary. -->
 
-## Requirements
+## Steps to Reproduce
 
-(What requirement does this affect)
+<!-- Describe how one can reproduce the issue - this is very important. Please use an ordered list. -->
 
-1. ...
-2. ...
-3. ...
+## What is the current *bug* behavior?
+
+<!-- Describe what actually happens. -->
+
+## What is the expected *correct* behavior?
+
+<!-- Describe what you should see instead. -->
+
+## Relevant logs and/or screenshots
+
+<!-- Paste any relevant logs - please use code blocks (```) to format console output, logs, and code
+ as it's tough to read otherwise. -->
 
 ## Definition of Done
 
-(List the characteristics of the finished work, does the bug persist, have any others been created)
+<!-- List the characteristics of the finished work, does the bug persist, have any others been created -->
 
-1. ...
-2. ...
-3. ...
+ - [ ] ...
 
 ## Resources
 
-(Any resources which will help the with this bug, documentation (related to the section of code), potential solutions)
+<!-- Any resources which will help the with this bug, documentation (related to the section of code), potential solutions -->
