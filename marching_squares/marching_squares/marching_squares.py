@@ -73,27 +73,24 @@ class MarchingSquares:
         """
         return point[1] * 100 + point[0]
 
-    def _point_array(self) -> None:
+    @staticmethod
+    def _point_array(image: _NUMERIC_ARRAY) -> tuple[dict[tuple[_POINT, bool]], int, int]:
         """This extracts the points from the image and stores them in a dictionary with
         each point either corresponding to black or white. The coordinates are doubled
         and incresed by one as vector lines will be drawn halfway between these points.
         This can be changed to match the original resolution of the image, however
         vectors will then be made of floating point coordinates.
         """
-        if self.result_image is None:
-            raise ValueError(
-                "Cannot calculate point array when self.result_image is None"
-            )
 
         black_list: list[_POINT] = []
         white_list: list[_POINT] = []
 
-        x = self.result_image.shape[0] - 1
-        y = self.result_image.shape[1] - 1
+        x = image.shape[0] - 1
+        y = image.shape[1] - 1
 
         for i in range(x + 1):
             for j in range(y + 1):
-                if self.result_image[i][j] == 1:
+                if image[i][j] == 1:
                     black_list.append((j, x - i))
                 else:
                     white_list.append((j, x - i))
@@ -112,10 +109,8 @@ class MarchingSquares:
         sorted_dict: list[tuple[_POINT, bool]] = sorted(
             state.items(), key=lambda x: self._sort_key(x[0])
         )
-        self.state_dict = dict(sorted_dict)
 
-        self.x_len = max(xblack + xwhite)
-        self.y_len = max(yblack + ywhite)
+        return (dict(sorted_dict),  max(xblack + xwhite), max(yblack + ywhite))
 
     def _get_value(self, i: int, j: int) -> int:
         """Splitting the point array space into squares 1 pixel wide. These squares
