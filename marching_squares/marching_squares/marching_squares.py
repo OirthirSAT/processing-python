@@ -112,7 +112,8 @@ class MarchingSquares:
 
         return (dict(sorted_dict),  max(xblack + xwhite), max(yblack + ywhite))
 
-    def _get_value(self, i: int, j: int) -> int:
+    @staticmethod
+    def _get_value(state_dict: dict[_POINT, bool], i: int, j: int) -> int:
         """Splitting the point array space into squares 1 pixel wide. These squares
         have corners lying on either a black or white point. The square as a whole
         adopts a value through the marching squares method, for a square centred at
@@ -123,15 +124,11 @@ class MarchingSquares:
         15. Each of these values coresponds to a line shape which will be used to
         create a coastline vector.
         """
-        if self.state_dict is None:
-            raise ValueError(
-                "Cannot calculate index self.state_dict when self.state_dict is None"
-            )
 
-        A = int(self.state_dict[(i, j)])
-        B = int(self.state_dict[(i + 2, j)])
-        C = int(self.state_dict[(i, j + 2)])
-        D = int(self.state_dict[(i + 2, j + 2)])
+        A = int(state_dict[(i, j)])
+        B = int(state_dict[(i + 2, j)])
+        C = int(state_dict[(i, j + 2)])
+        D = int(state_dict[(i + 2, j + 2)])
         return A + B * 2 + C * 4 + D * 8
 
     def _generate_edges(self, i: int, j: int, index: int) -> list[_VECTOR] | None:
