@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt  # This will import plotting module
 import numpy as np
 from numpy.typing import NDArray
 import cv2
-from typing import Any, cast, Optional
+from typing import Any, Optional
 
 
 # typedefs
@@ -107,7 +107,7 @@ class MarchingSquares:
         state: dict[_POINT, bool] = {tuple(point): True for point in black}
         state.update({tuple(point): False for point in white})
         sorted_dict: list[tuple[_POINT, bool]] = sorted(
-            state.items(), key=lambda x: self._sort_key(x[0])
+            state.items(), key=lambda x: MarchingSquares._sort_key(x[0])
         )
 
         return (dict(sorted_dict),  max(xblack + xwhite), max(yblack + ywhite))
@@ -330,3 +330,9 @@ class MarchingSquares:
         vectors = MarchingSquares._list_vectors(state_dict, x_len, y_len)
         shapes = MarchingSquares._vector_shapes(vectors)
         _ = MarchingSquares._show_coastline(image, shapes, x_len, y_len)
+
+
+import os
+
+print(os.path.dirname(__file__) + "/Aberdeenshire_S2_20220810_TCI.tif")
+MarchingSquares.run(os.path.dirname(__file__) + "/Aberdeenshire_S2_20220810_TCI.tif")
