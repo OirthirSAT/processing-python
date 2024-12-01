@@ -31,7 +31,7 @@ assignees: ''
 
 ## Definition of Done
 
-<!-- List the characteristics of the finished work, does the bug persist, have any others been created -->
+<!-- List all items that need to be done for this issue to be classed as complete. --> 
 
  - [ ] ...
 
