@@ -47,7 +47,8 @@ class MarchingSquares:
         # distinguish between land and sea.
         return cv2.cvtColor(image_resized, cv2.COLOR_BGR2HSV)
 
-    def _otsu_segmentation(self) -> None:
+    @staticmethod
+    def _otsu_segmentation(image: _NUMERIC_ARRAY) -> tuple[float, _NUMERIC_ARRAY]:
         """Uses the Otsu segmentation method to distinguish between land and sea to
         extract the coastline vector. This will be later replaced by the UNET section
         of the pipeline. The Otsu threshold works by creating a histogram of the hue
@@ -57,13 +58,8 @@ class MarchingSquares:
         between these two peaks. The output of this function is a binary valued
         segmented image 0 for sea and 1 for land
         """
-        if self.image is None:
-            raise ValueError(
-                f"Cannot calculate Otsu segmentation when self.image is None."
-            )
-
-        hue_channel = self.image[:, :, 0]
-        self.threshold, self.result_image = cv2.threshold(
+        hue_channel = image[:, :, 0]
+        return cv2.threshold(
             hue_channel,
             0,
             1,
