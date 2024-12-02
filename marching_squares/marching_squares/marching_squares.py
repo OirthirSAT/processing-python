@@ -12,21 +12,6 @@ _VECTOR = tuple[_POINT, _POINT]
 
 
 class MarchingSquares:
-    def __init__(self, filename: str, downsample_factor: float) -> None:
-        self.filename = filename
-        self.downsample_factor = downsample_factor
-        self._reset_state
-
-    def _reset_state(self) -> None:
-        self.image: Optional[_NUMERIC_ARRAY] = None
-        self.result_image: Optional[_NUMERIC_ARRAY] = None
-        self.threshold: Optional[float] = None
-        self.state_dict: Optional[dict[_POINT, bool]] = None
-        self.x_len: Optional[int] = None
-        self.y_len: Optional[int] = None
-        self.vectors: Optional[list[list[_VECTOR]]] = None
-        self.shapes: Optional[list[list[_POINT]]] = None
-        self.coastline_vector: Optional[list[_POINT]] = None
 
     @staticmethod
     def _readfile(filename: str, downsample_factor: float) -> _NUMERIC_ARRAY:
