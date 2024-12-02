@@ -1,4 +1,4 @@
 [tool.pydoclint]
 style = 'google'
 exclude = '\.git|\.tox|tests/data|some_script\.py'
-require-return-section-when-returning-nothing = true
+require-return-section-when-returning-nothing = false
