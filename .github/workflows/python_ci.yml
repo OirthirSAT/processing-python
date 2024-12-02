@@ -29,6 +29,10 @@ jobs:
         run: |
           black --check --diff marching_squares/marching_squares
           black --check --diff cloud_mask
+      - name: Lint docstrings with pydoclint
+        run : |
+          pydoclint --style google marching_squares/marching_squares
+          pydoclint --style google cloud_mask
       - name: Type check with mypy
         run: |
           mypy --strict --implicit-reexport marching_squares/marching_squares
