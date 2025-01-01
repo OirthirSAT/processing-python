@@ -35,11 +35,11 @@ def preprocess_npz(npz_path):
     return image_batch
 
 # Example usage:
-npz_path = "/Users/jazzymaxine/Workspace/OirthirSAT/image-processing-pipeline/unet/Sentinel2_11_001-20241014T065525Z-001/Sentinel2_11_001/chunk1_20181215T183751_20181215T184316_T11SKT.TCI_RGB_site49_ID3.npz" # Path to the .npz file
+npz_path = "input/chunk1_20181215T183751_20181215T184316_T11SKT.TCI_RGB_site49_ID3.npz" # Path to the .npz file
 image_batch = preprocess_npz(npz_path) # Preprocess the image
 
 # Load the model from the model_maker.py script trained on the traineddata folder
-model = tf.keras.models.load_model('/Users/jazzymaxine/Workspace/OirthirSAT/image-processing-pipeline/unet/UNET/unet_coastline_model.h5')
+model = tf.keras.models.load_model('unet_coastline_model.h5')
 
 # Make prediction
 prediction = model.predict(image_batch)
