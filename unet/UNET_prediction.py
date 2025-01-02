@@ -62,6 +62,3 @@ def make_prediction(model_path: str, source_path: str, target_path: str):
     # prediction_image.show()
     plt.imshow(prediction[0])
     plt.savefig(target_path)
-
-
-make_prediction("/Users/jazzymaxine/Workspace/OirthirSAT/image-processing-pipeline/unet/UNET/unet_coastline_model.h5", "/Users/jazzymaxine/Workspace/OirthirSAT/image-processing-pipeline/unet/UNET/input/chunk1_20190129T183619_20190129T184034_T11SLT.TCI_RGB_site53_ID3.npz", "output.png")
