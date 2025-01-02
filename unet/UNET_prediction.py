@@ -9,28 +9,32 @@ import matplotlib.pyplot as plt
 def preprocess_npz(npz_path):
 
     # Load the .npz file
-    data = np.load(npz_path) 
-    
+    data = np.load(npz_path)
 
     # grab the 'image' key which holds the relevant image data
-    image = data['image']  
+    image = data["image"]
 
     # Resize the image to 256x256
     image_resized = cv2.resize(image, (256, 256))
 
     # Normalize the image to [0, 1]
-    image_normalized = image_resized.astype('float32') / 255.0
+    image_normalized = image_resized.astype("float32") / 255.0
 
     # Ensure the image has 3 channels (RGB) (not greyscale)
     if image_normalized.shape[-1] != 3:
-        raise ValueError(f"Image must have 3 channels (RGB). Got shape: {image_normalized.shape}")
+        raise ValueError(
+            f"Image must have 3 channels (RGB). Got shape: {image_normalized.shape}"
+        )
 
-    image_swapped = image_normalized[..., [2, 1, 0]]  # Swap the first (Red) and third (Blue) channels
-    
+    image_swapped = image_normalized[
+        ..., [2, 1, 0]
+    ]  # Swap the first (Red) and third (Blue) channels
+
     # Expand dimensions to match the input shape (batch_size, height, width, channels) of the model
     image_batch = np.expand_dims(image_swapped, axis=0)
 
     return image_batch
+
 
 """
 # Example usage:
@@ -48,6 +52,7 @@ prediction = model.predict(image_batch)
 plt.imshow(prediction[0])  # Display the first image in the batch
 plt.show()
 """
+
 
 def make_prediction(model_path: str, source_path: str, target_path: str):
     """
