@@ -1,12 +1,14 @@
 # This script demonstrates how to preprocess an image from an .npz file and make a prediction using a trained model.
 import cv2
 import numpy as np
-import tensorflow as tf
+import tensorflow as tf  # type: ignore
 import matplotlib.pyplot as plt
+from numpy.typing import NDArray
+from typing import Any
 
 
 # Define a function to preprocess an image from an .npz file
-def preprocess_npz(npz_path):
+def preprocess_npz(npz_path: str) -> NDArray[np.floating[Any]]:
 
     # Load the .npz file
     data = np.load(npz_path)
@@ -54,7 +56,7 @@ plt.show()
 """
 
 
-def make_prediction(model_path: str, source_path: str, target_path: str):
+def make_prediction(model_path: str, source_path: str, target_path: str) -> None:
     """
     Parameters:
         model_path: Path to the saved model, e.g. "unet_coastline_model.h5".

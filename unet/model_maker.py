@@ -2,10 +2,11 @@
 
 import os
 import numpy as np
-from sklearn.model_selection import train_test_split
-import tensorflow as tf
-from tensorflow.keras import layers, models
+from sklearn.model_selection import train_test_split  # type: ignore
+import tensorflow as tf  # type: ignore
+from tensorflow.keras import layers, models  # type: ignore
 import cv2  # For resizing images if needed
+from typing import Any
 
 
 # Define paths
@@ -100,22 +101,22 @@ else:
 
 # If data lengths are consistent, proceed to train-test split
 if len(input_data) == len(label_data):
-    input_data = np.array(input_data)
-    label_data = np.array(label_data)
+    input_array = np.array(input_data)
+    label_array = np.array(label_data)
 
     # Step 2: Preprocess data (e.g., normalize input, ensure labels are correct shape)
-    input_data = (
-        input_data.astype("float32") / 255.0
+    input_array = (
+        input_array.astype("float32") / 255.0
     )  # Scale to [0, 1] if working with images
-    label_data = label_data.astype("int32")  # Ensure labels are integers if needed
+    label_array = label_array.astype("int32")  # Ensure labels are integers if needed
 
     # Step 3: Split data into training and validation sets
     X_train, X_val, y_train, y_val = train_test_split(
-        input_data, label_data, test_size=0.2, random_state=42
+        input_array, label_array, test_size=0.2, random_state=42
     )
 
     # Step 4: Define the U-Net model
-    def unet_model(input_shape):
+    def unet_model(input_shape: Any) -> Any:
         inputs = layers.Input(input_shape)
         c1 = layers.Conv2D(64, (3, 3), activation="relu", padding="same")(inputs)
         c1 = layers.MaxPooling2D((2, 2))(c1)

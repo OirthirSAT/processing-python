@@ -13,7 +13,7 @@ MODEL_PATH = os.path.join(
 
 
 class UnetPredictionTests(unittest.TestCase):
-    def test_image_produced(self):
+    def test_image_produced(self) -> None:
         """
         This test is designed to catch breaking changes.
         """
