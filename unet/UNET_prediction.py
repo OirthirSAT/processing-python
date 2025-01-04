@@ -69,3 +69,10 @@ def make_prediction(model_path: str, source_path: str, target_path: str) -> None
     # prediction_image.show()
     plt.imshow(prediction[0])
     plt.savefig(target_path)
+
+
+make_prediction(
+    "unet/unet_coastline_model.h5",
+    "unet/Sentinel2_11_001-20241014T065525Z-001/Sentinel2_11_001/chunk1_20181215T183751_20181215T184316_T11SKT.TCI_RGB_site49_ID3.npz",
+    "unet/prediction.png",
+)
