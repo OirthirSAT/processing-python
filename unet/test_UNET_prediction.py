@@ -7,9 +7,7 @@ from pathlib import Path
 
 IMAGE_SHAPE = (256, 256, 3)
 IMAGE = np.random.randint(256, size=IMAGE_SHAPE, dtype=np.uint8)
-MODEL_PATH = os.path.join(
-    Path(__file__).parent.absolute(), "unet_coastline_model.h5"
-)
+MODEL_PATH = os.path.join(Path(__file__).parent.absolute(), "unet_coastline_model.h5")
 
 
 class UnetPredictionTests(unittest.TestCase):
