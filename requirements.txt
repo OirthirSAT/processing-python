@@ -7,3 +7,4 @@ mypy
 black
 scikit-learn
 tensorflow
+PyQt6
