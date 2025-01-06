@@ -2,7 +2,7 @@ import tempfile
 import unittest
 import numpy as np
 import os
-import UNET_prediction
+from UNET_prediction import make_prediction
 from pathlib import Path
 
 IMAGE_SHAPE = (256, 256, 3)
@@ -19,7 +19,7 @@ class UnetPredictionTests(unittest.TestCase):
         _, source = tempfile.mkstemp(suffix=".npz")
         _, target = tempfile.mkstemp(suffix=".png")
         np.savez(source, image=IMAGE)
-        UNET_prediction.make_prediction(MODEL_PATH, source, target)
+        make_prediction(MODEL_PATH, source, target)
 
 
 if __name__ == "__main__":
