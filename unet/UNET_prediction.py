@@ -1,23 +1,35 @@
-# This script demonstrates how to preprocess an image from an .npz file and make a prediction using a trained model.
 import cv2
 import numpy as np
 import tensorflow as tf  # type: ignore
 import matplotlib.pyplot as plt
 from numpy.typing import NDArray
-from typing import Any
+from typing import Any, cast
 
 
-# Define a function to preprocess an image from an .npz file
-def preprocess_npz(npz_path: str) -> NDArray[np.floating[Any]]:
+# typedefs
+_NUMERIC_ARRAY = NDArray[np.floating[Any] | np.integer[Any]]
 
-    # Load the .npz file
-    data = np.load(npz_path)
 
-    # grab the 'image' key which holds the relevant image data
-    image = data["image"]
+def preprocess_npz(
+    npz_path: str | None = None,
+    np_image: _NUMERIC_ARRAY | None = None,
+) -> NDArray[np.floating[Any]]:
 
-    # Resize the image to 256x256
-    image_resized = cv2.resize(image, (256, 256))
+    if not npz_path and not np_image:
+        raise ValueError("Expected one of npz_image or np_image to be not None.")
+
+    if not np_image:
+        npz_path = cast(str, npz_path)  # MyPy needs some help
+
+        data = np.load(npz_path)
+
+        # grab the 'image' key which holds the relevant image data
+        np_image = data["image"]
+
+    np_image = cast(_NUMERIC_ARRAY, np_image)  # MyPy needs some help
+
+    # Unet admits images of size (256, 256) only.
+    image_resized = cv2.resize(np_image, (256, 256))
 
     # Normalize the image to [0, 1]
     image_normalized = image_resized.astype("float32") / 255.0
@@ -32,7 +44,7 @@ def preprocess_npz(npz_path: str) -> NDArray[np.floating[Any]]:
         ..., [2, 1, 0]
     ]  # Swap the first (Red) and third (Blue) channels
 
-    # Expand dimensions to match the input shape (batch_size, height, width, channels) of the model
+    # Model admits shape (batch_size, height, width, channels) only.
     image_batch = np.expand_dims(image_swapped, axis=0)
 
     return image_batch
@@ -56,7 +68,9 @@ plt.show()
 """
 
 
-def make_prediction(model_path: str, source_path: str, target_path: str) -> None:
+def make_prediction(
+    model_path: str, source_path: str, target_path: str | None
+) -> NDArray[np.floating[Any]]:
     """
     Parameters:
         model_path: Path to the saved model, e.g. "unet_coastline_model.h5".
@@ -66,6 +80,8 @@ def make_prediction(model_path: str, source_path: str, target_path: str) -> None
     image_batch = preprocess_npz(source_path)
     model = tf.keras.models.load_model(model_path)
     prediction = model.predict(image_batch)
-    # prediction_image.show()
-    plt.imshow(prediction[0])
-    plt.savefig(target_path)
+    if target_path:
+        plt.imshow(prediction[0])
+        plt.savefig(target_path)
+    prediction = cast(NDArray[np.floating[Any]], prediction)  # keras has no MyPy stubs
+    return prediction
