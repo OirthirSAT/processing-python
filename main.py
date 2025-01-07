@@ -2,6 +2,8 @@ from cloud_mask import CloudMask
 from unet import UNET_prediction
 from marching_squares.marching_squares import MarchingSquares
 import logging
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 def main(
@@ -29,7 +31,16 @@ def main(
         )
         return
     masked_image = cm.apply_cloud_mask(mask)
-    unet = UNET_prediction
+    unet_prediction = UNET_prediction.make_prediction(
+        model_path, source_image=masked_image[:, :, :3]
+    )
+    plt.figure(figsize=(10, 10))
+    plt.imshow((unet_prediction * 256).astype(np.uint8)[0])
+    plt.show()
 
 
-main(model_path="", source_path="Aberdeenshire_S2_20220810_TCI.tif", target_path="")
+main(
+    model_path="unet/unet_coastline_model.h5",
+    source_path="Aberdeenshire_S2_20220810_TCI.tif",
+    target_path="",
+)

@@ -15,10 +15,10 @@ def preprocess_npz(
     np_image: _NUMERIC_ARRAY | None = None,
 ) -> NDArray[np.floating[Any]]:
 
-    if not npz_path and not np_image:
+    if npz_path is None and np_image is None:
         raise ValueError("Expected one of npz_image or np_image to be not None.")
 
-    if not np_image:
+    if np_image is None:
         npz_path = cast(str, npz_path)  # MyPy needs some help
 
         data = np.load(npz_path)
@@ -69,7 +69,10 @@ plt.show()
 
 
 def make_prediction(
-    model_path: str, source_path: str, target_path: str | None
+    model_path: str,
+    source_path: str | None = None,
+    source_image: _NUMERIC_ARRAY | None = None,
+    target_path: str | None = None,
 ) -> NDArray[np.floating[Any]]:
     """
     Parameters:
@@ -77,7 +80,7 @@ def make_prediction(
         source_path: Path to the source image as an npz.
         target_path: Path to save prediction to. Must end with a valid file extension e.g. "prediction.png".
     """
-    image_batch = preprocess_npz(source_path)
+    image_batch = preprocess_npz(source_path, source_image)
     model = tf.keras.models.load_model(model_path)
     prediction = model.predict(image_batch)
     if target_path:
