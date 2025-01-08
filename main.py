@@ -31,12 +31,13 @@ def main(
         )
         return
     masked_image = cm.apply_cloud_mask(mask)
-    unet_prediction = UNET_prediction.make_prediction(
-        model_path, source_image=masked_image[:, :, :3]
-    )
-    plt.figure(figsize=(10, 10))
-    plt.imshow((unet_prediction * 256).astype(np.uint8)[0])
-    plt.show()
+    unet_prediction = (
+        UNET_prediction.make_prediction(
+            model_path, source_image=masked_image[:, :, :3]
+        )[0]
+        * 256
+    ).astype(np.uint8)
+    MarchingSquares.run(None, unet_prediction, 1)
 
 
 main(
