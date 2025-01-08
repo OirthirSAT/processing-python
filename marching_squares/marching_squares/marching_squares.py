@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt  # This will import plotting module
 import numpy as np
 from numpy.typing import NDArray
 import cv2
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 
 # typedefs
@@ -14,11 +14,39 @@ _VECTOR = tuple[_POINT, _POINT]
 class MarchingSquares:
 
     @staticmethod
-    def _readfile(filename: str, downsample_factor: float) -> _NUMERIC_ARRAY:
-        """Reads a tif file with bgr formatting, resizes the image if necessary and
-        then converts into a hsv file using the cv2 library.
+    def _readfile(
+        filename: str | None, file: _NUMERIC_ARRAY | None, downsample_factor: float
+    ) -> _NUMERIC_ARRAY:
+        """Converts an input image to .hsv and performs downsampling
+
+        Params:
+            filename: the location at which the input image is stored. If file is None,
+                this must not be None.
+            file: the input image. If this is not None, it will be accepted regardless
+                of the value of filename.
+            downsample_factor: factor by which to scale the image. e.g. 0.5 corresponds
+                to halving each dimension.
+
+        Returns: The downsampled image in HSV format as a numeric numpy array.
+
+        Throws:
+            ValueError: If both filename and file are None.
         """
-        image_bgr = cv2.imread(filename)
+
+        if filename is None and file is None:
+            raise ValueError("Expected one of filename or file to be not None.")
+
+        if file is None:
+
+            filename = cast(str, filename)  # MyPy needs some help
+
+            image_bgr = cv2.imread(filename)
+
+        else:
+
+            file = cast(_NUMERIC_ARRAY, file)  # MyPy needs some help
+
+            image_bgr = file[:, :, ::-1]
 
         # If necessary for performance speed, compress the file
         new_size: _POINT = (
@@ -313,9 +341,11 @@ class MarchingSquares:
         return shapes[0]
 
     @staticmethod
-    def run(file: str, downsample_factor: float = 1) -> None:
+    def run(
+        filename: str | None, file: _NUMERIC_ARRAY | None, downsample_factor: float = 1
+    ) -> None:
 
-        image = MarchingSquares._readfile(file, downsample_factor)
+        image = MarchingSquares._readfile(filename, file, downsample_factor)
         _, threshold_image = MarchingSquares._otsu_segmentation(image)
         state_dict, x_len, y_len = MarchingSquares._point_array(threshold_image)
         vectors = MarchingSquares._list_vectors(state_dict, x_len, y_len)
