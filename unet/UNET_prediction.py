@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from numpy.typing import NDArray
 from typing import Any
 
+
 # Define a function to preprocess an image from an .npz file
 def preprocess_npz(npz_path: str) -> NDArray[np.floating[Any]]:
     """
@@ -52,7 +53,10 @@ def preprocess_npz(npz_path: str) -> NDArray[np.floating[Any]]:
 
 def make_prediction(model_path: str, source_path: str, target_path: str) -> None:
     """
-    Parameters:
+    Runs the specified network on a source image, and saves its output to the target
+    path.
+
+    Args:
         model_path: Path to the saved model, e.g. "unet_coastline_model.h5".
         source_path: Path to the source image as an npz.
         target_path: Path to save prediction to. Must end with a valid file extension e.g. "prediction.png".
