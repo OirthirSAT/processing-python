@@ -6,7 +6,20 @@ import matplotlib.pyplot as plt
 
 
 # Define a function to preprocess an image from an .npz file
-def preprocess_npz(npz_path):
+def preprocess_npz(npz_path: str):
+    """
+    Args:
+        npz_path: Path to the .npz file containing the rgb image as a numpy array under
+            key "image".
+
+    Returns:
+        A 4-dimensional array containing [the image as bgr], as the model accepts an
+        additional dimension representing batches of images.
+
+    Raises:
+        ValueError: If the input npz does not represent an RGB image with shape
+            (x, y, 3).
+    """
 
     # Load the .npz file
     data = np.load(npz_path)
