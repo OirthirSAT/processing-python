@@ -29,15 +29,19 @@ jobs:
         run: |
           black --check --diff marching_squares/marching_squares
           black --check --diff cloud_mask
-      - name: Lint docstrings with pydoclint
-        run : |
-          pydoclint --config=pyproject.toml marching_squares/marching_squares
-          pydoclint --config=pyproject.toml cloud_mask
+          black --check --diff unet
       - name: Type check with mypy
         run: |
           mypy --strict --implicit-reexport marching_squares/marching_squares
           mypy --strict --implicit-reexport cloud_mask
+          mypy --strict --implicit-reexport unet
+      - name: Lint docstrings with pydoclint
+        run : |
+          pydoclint --config=pyproject.toml marching_squares/marching_squares
+          pydoclint --config=pyproject.toml cloud_mask
+          pydoclint --config=pyproject.toml unet
       - name: Test with unittest
         run: |
           python -m unittest discover -s marching_squares/marching_squares -p 'test_*.py'
           python -m unittest discover -s cloud_mask -p 'test_*.py'
+          python -m unittest discover -s unet -p 'test_*.py'
