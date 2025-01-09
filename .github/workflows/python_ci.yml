@@ -29,11 +29,14 @@ jobs:
         run: |
           black --check --diff marching_squares/marching_squares
           black --check --diff cloud_mask
+          black --check --diff unet
       - name: Type check with mypy
         run: |
           mypy --strict --implicit-reexport marching_squares/marching_squares
           mypy --strict --implicit-reexport cloud_mask
+          mypy --strict --implicit-reexport unet
       - name: Test with unittest
         run: |
           python -m unittest discover -s marching_squares/marching_squares -p 'test_*.py'
           python -m unittest discover -s cloud_mask -p 'test_*.py'
+          python -m unittest discover -s unet -p 'test_*.py'
