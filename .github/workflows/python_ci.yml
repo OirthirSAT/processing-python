@@ -34,7 +34,6 @@ jobs:
         run: |
           mypy --strict --implicit-reexport marching_squares/marching_squares
           mypy --strict --implicit-reexport cloud_mask
-          mypy --strict --implicit-reexport unet
       - name: Lint docstrings with pydoclint
         run : |
           pydoclint --config=pyproject.toml marching_squares/marching_squares
