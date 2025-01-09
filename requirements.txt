@@ -5,4 +5,7 @@ opencv-python
 scikit-image
 mypy
 black
+scikit-learn
+tensorflow
+PyQt6
 pydoclint
