@@ -8,4 +8,4 @@ black
 scikit-learn
 tensorflow
 PyQt6
-pydocstyle
+pydoclint
