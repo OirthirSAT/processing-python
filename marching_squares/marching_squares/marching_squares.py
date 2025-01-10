@@ -426,7 +426,9 @@ class MarchingSquares:
 
     @staticmethod
     def run(
-        filename: str | None, file: _NUMERIC_ARRAY | None, downsample_factor: float = 1
+        filename: str | None = None,
+        file: _NUMERIC_ARRAY | None = None,
+        downsample_factor: float = 1,
     ) -> None:
         """
         A test method which calculates the coastline of the input file and displays it
