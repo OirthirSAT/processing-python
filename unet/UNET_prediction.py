@@ -81,11 +81,12 @@ def make_prediction(
             source_image is None.
         source_image: Raw source image in rgb as an array. If not None, source_path
             will be disregarded.
-        target_path: Path to save prediction to. Must end with a valid file extension e.g. "prediction.png".
+        target_path: Path to save prediction to. Must end with a valid file extension
+            e.g. "prediction.png".
 
-    Raises:
-        ValueError: If the input does not represent an RGB image with shape
-            (x, y, 3), or if both npz_image and np_image are none.
+    Returns:
+        The prediction of the model, as a 4d array with the first dimension
+            representing batches, in BGR with values between [0, 1)
     """
 
     image_batch = preprocess_npz(source_path, source_image)
