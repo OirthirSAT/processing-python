@@ -17,19 +17,24 @@ class MarchingSquares:
     def _readfile(
         filename: str | None, file: _NUMERIC_ARRAY | None, downsample_factor: float
     ) -> _NUMERIC_ARRAY:
-        """Converts an input image to .hsv and performs downsampling
+        """
+        Reads a tif file with bgr formatting, resizes the image if necessary and
+        then converts into a hsv file using the cv2 library.
 
-        Params:
-            filename: the location at which the input image is stored. If file is None,
-                this must not be None.
-            file: the input image. If this is not None, it will be accepted regardless
-                of the value of filename.
-            downsample_factor: factor by which to scale the image. e.g. 0.5 corresponds
-                to halving each dimension.
+        Args:
+            filename: The path to the .tif file, bgr formatted, to be read, or None if
+                the data is directly provided.
+            file: The bgr image as an array. If this prameter is not None, filename is
+                not used.
+            downsample_factor: float by which to scale the image on each axis. e.g. 0.5
+                applied to a 1024x1024 image results in a 512x512 image for a 4x
+                reduction in pixels.
 
-        Returns: The downsampled image in HSV format as a numeric numpy array.
+        Returns:
+            A numeric array representing the image after being downscaled and converted
+            to hsv format.
 
-        Throws:
+        Raises:
             ValueError: If both filename and file are None.
         """
 
@@ -62,14 +67,21 @@ class MarchingSquares:
 
     @staticmethod
     def _otsu_segmentation(image: _NUMERIC_ARRAY) -> tuple[float, _NUMERIC_ARRAY]:
-        """Uses the Otsu segmentation method to distinguish between land and sea to
+        """
+        Uses the Otsu segmentation method to distinguish between land and sea to
         extract the coastline vector. This will be later replaced by the UNET section
         of the pipeline. The Otsu threshold works by creating a histogram of the hue
         values in the hsv image. This will result in two large broad peaks in the
         histogram corresponding to the hue values of land more oranges and greens,
         whereas the sea will be distinctly blue. The threshold value is then the point
-        between these two peaks. The output of this function is a binary valued
-        segmented image 0 for sea and 1 for land
+        between these two peaks.
+
+        Args:
+            image: The image to be segmented in hsv format.
+
+        Returns:
+            A tuple containing [0] the threshold value between land and sea and [1] a
+            binary valued segmented image where 0 represents sea and 1 land.
         """
         hue_channel = image[:, :, 0]
         return cv2.threshold(
@@ -81,18 +93,36 @@ class MarchingSquares:
 
     @staticmethod
     def _sort_key(point: _POINT) -> int:
-        """Creating a function that will weight the dictionary points such that they
-        can be sorted from left to right starting at the bottom left.
+        """
+        Creating a function that will weight the dictionary points such that they can
+        be sorted from left to right starting at the bottom left.
+
+        Args:
+            point: A tuple representing a point in an image as a [row, col] index.
+
+        Returns:
+            An integer key that uniquely represents this point, and maps a strong
+            ordering onto all points where a < b => a[1] < b[1] or a[1] == b[1]
+            and a[0] < b[0].
         """
         return point[1] * 100 + point[0]
 
     @staticmethod
     def _point_array(image: _NUMERIC_ARRAY) -> tuple[dict[_POINT, bool], int, int]:
-        """This extracts the points from the image and stores them in a dictionary with
+        """
+        This extracts the points from the image and stores them in a dictionary with
         each point either corresponding to black or white. The coordinates are doubled
         and incresed by one as vector lines will be drawn halfway between these points.
         This can be changed to match the original resolution of the image, however
         vectors will then be made of floating point coordinates.
+
+        Args:
+            image: An array representing the image in hsv.
+
+        Returns:
+            A tuple containing [0] a dictionary from point to its boolean value, where
+            a value of True designates a black point and False a white point; [1], [2]
+            the new height and width of the image, expanded for marching squares.
         """
 
         black_list: list[_POINT] = []
@@ -127,15 +157,26 @@ class MarchingSquares:
 
     @staticmethod
     def _get_value(state_dict: dict[_POINT, bool], i: int, j: int) -> int:
-        """Splitting the point array space into squares 1 pixel wide. These squares
+        """
+        Splitting the point array space into squares 1 pixel wide. These squares
         have corners lying on either a black or white point. The square as a whole
         adopts a value through the marching squares method, for a square centred at
         (2,2) it is corners at A(1,1),B(3,1),C(1,3) and D(3,3). Associating each of
-        these corners with a binary weighting value A:2^0, B:2^2, C:2^3, D:2^4 and then
+        these corners with a binary weighting value A:2^0, B:2^1, C:2^2, D:2^3 and then
         summing these values multiplied by either 0 or 1 dependeing on the state of the
         point they sit on 1 for white and 0 for black will produce a value from 0 to
         15. Each of these values coresponds to a line shape which will be used to
         create a coastline vector.
+
+        Args:
+            state_dict: A mapping from point to a bool representing its colour, where
+                True = black and False = white.
+            i: The height value of the point to evaluate.
+            j: The width value of the point to evaluate.
+
+        Returns:
+            An integer corresponding to the shape of the line that will be drawn
+            through this point.
         """
 
         A = int(state_dict[(i, j)])
@@ -146,10 +187,22 @@ class MarchingSquares:
 
     @staticmethod
     def _generate_edges(i: int, j: int, index: int) -> list[_VECTOR] | None:
-        """Generates the line associated with the index of the square. This is done by
+        """
+        Generates the line associated with the index of the square. This is done by
         outputting a start and end point for a line. Indexes of 6 and 9 are special in
         that two lines are created.
+
+        Args:
+            i: The height value of the point to evaluate.
+            j: The width value of the point to evaluate.
+            index: An integer representing the shape of the line to be drawn through
+                point [i, j].
+
+        Returns:
+            A list of line segments representing the borders drawn by the marching
+            squares algorithm.
         """
+
         x: int
         y: int
         x, y = i, j
@@ -204,6 +257,18 @@ class MarchingSquares:
     def _list_vectors(
         state_dict: dict[_POINT, bool], x_len: int, y_len: int
     ) -> list[list[_VECTOR]]:
+        """
+        Args:
+            state_dict: A mapping of points to their black/white state, with True
+                representing a black state and False a white state.
+            x_len: The width of the image represented by state_dict.
+            y_len: The height of the image represented by state_dict.
+
+        Returns:
+            A list of lists of line segments representing the border generated by
+            marching squares. Each inner list of line segments represents part of the
+            border generated by a single pixel in the source image.
+        """
 
         vectors: list[list[_VECTOR] | None] = []
         i: int
@@ -245,6 +310,14 @@ class MarchingSquares:
         remove. At the end of this function, the shapes are ordered dependeing on their
         size. The main coastline vector will be the longest whereas there will be
         shorter vectors corresponding to islands.
+
+        Args:
+            vectors: The list of line segment lists representing the contributions to
+                the sea-land border by every pixel.
+
+        Returns:
+            A list of joined shapes, represented as lists of points, ordered by shape
+            size (number of points in the shape).
         """
 
         shapes: list[list[_POINT]] = []
@@ -314,8 +387,19 @@ class MarchingSquares:
     def _show_coastline(
         image: _NUMERIC_ARRAY, shapes: list[list[_POINT]], x_len: int, y_len: int
     ) -> list[_POINT]:
-        """This is the plotting function that will plot the main coastline vector. The
-        range of the for loop can be changed to plot any islands as well.
+        """
+        This is the plotting function that will plot all points making up the
+        coastline.
+
+        Args:
+            image: An array representing the source image in hsv.
+            shapes: The shapes representing the coastline detected from the source
+                image.
+            x_len: The width of the image.
+            y_len: The height of the image.
+
+        Returns:
+            The largest coastline shape.
         """
 
         plt.figure(figsize=(10, 5))
@@ -344,6 +428,21 @@ class MarchingSquares:
     def run(
         filename: str | None, file: _NUMERIC_ARRAY | None, downsample_factor: float = 1
     ) -> None:
+        """
+        A test method which calculates the coastline of the input file and displays it
+        as a collection of line segments next to the scaled input image.
+
+        Args:
+            filename: The path to the input file, as a bgr .tif.
+            file: The bgr image as an array. If this prameter is not None, filename is
+                not used.
+            downsample_factor: float by which to scale the image on each axis. e.g. 0.5
+                applied to a 1024x1024 image results in a 512x512 image for a 4x
+                reduction in pixels.
+
+        Raises:
+            ValueError: If both filename and file are None.
+        """
 
         image = MarchingSquares._readfile(filename, file, downsample_factor)
         _, threshold_image = MarchingSquares._otsu_segmentation(image)
