@@ -19,7 +19,7 @@ class UnetPredictionTests(unittest.TestCase):
         _, source = tempfile.mkstemp(suffix=".npz")
         _, target = tempfile.mkstemp(suffix=".png")
         np.savez(source, image=IMAGE)
-        make_prediction(MODEL_PATH, source, target)
+        make_prediction(MODEL_PATH, source_path=source, target_path=target)
 
 
 if __name__ == "__main__":

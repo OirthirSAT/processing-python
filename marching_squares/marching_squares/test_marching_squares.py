@@ -21,7 +21,7 @@ class MarchingSquaresTests(unittest.TestCase):
         with os.fdopen(fd, "wb") as file:
             image = Image.fromarray(_RANDOM_IMAGE, "RGB")
             image.save(file, format="TIFF")
-        MarchingSquares.run(path, 0.05)
+        MarchingSquares.run(filename=path, downsample_factor=0.05)
 
 
 if __name__ == "__main__":
