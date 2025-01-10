@@ -439,9 +439,6 @@ class MarchingSquares:
             downsample_factor: float by which to scale the image on each axis. e.g. 0.5
                 applied to a 1024x1024 image results in a 512x512 image for a 4x
                 reduction in pixels.
-
-        Raises:
-            ValueError: If both filename and file are None.
         """
 
         image = MarchingSquares._readfile(filename, file, downsample_factor)
