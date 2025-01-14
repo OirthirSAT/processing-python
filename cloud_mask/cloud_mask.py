@@ -7,6 +7,27 @@ import warnings
 
 
 class CloudMask:
+    """
+    Initialise using 4-band NDArray (default) or .tif file.
+
+    Args:
+        bands: The four bands of the image, as a 4xMxN tensor. Having the input as an
+            array ensures M and N are consistent for each band.
+        tif_path: Path to the input file as a .tif. Only applied if bands is None.
+        downsample_factor: float by which to scale the image on each axis. e.g. 0.5
+            applied to a 1024x1024 image results in a 512x512 image for a 4x reduction
+            in pixels.
+        ndsi_threshold: Any pixel with an nsdi value above this threshold will be
+            masked out.
+        brightness_threshold: Any pixel with a brightness value above this threshold
+            will be masked out.
+        thermal_threshold: Any pixel with a thermal value above this threshold will be
+            masked out.
+
+    Raises:
+        ValueError: if both tif_file and bands are None.
+    """
+
     def __init__(
         self,
         bands: NDArray[np.uint8] | None = None,
@@ -16,19 +37,6 @@ class CloudMask:
         brightness_threshold: float = 0.5,
         thermal_threshold: float = 0.5,  # example threshold
     ) -> None:
-        """
-        Initialise using 4-band NDArray (default) or .tif file.
-
-        Parameters:
-            bands: The four bands of the image, as a 4xMxN tensor. Having the
-                input as an array ensures M and N are consistent for each band.
-            nsdi_threshold: Any pixel with an nsdi value above this threshold
-                will be masked out.
-            brightness_threshold: Any pixel with a brightness value above this
-                threshold will be masked out.
-            thermal_threshold: Any pixel with a thermal value above this
-                threshold will be masked out.
-        """
 
         self.downsample_factor = downsample_factor
         self.ndsi_threshold = ndsi_threshold
@@ -57,7 +65,23 @@ class CloudMask:
     ) -> Tuple[
         NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8]
     ]:
-        """Load image bands from BGR image file"""
+        """
+        Load image bands from BGR image file.
+
+        Args:
+            file: The path to a .tif image file in BGR format.
+            downsample_factor: A float by which to scale the image on each axis. e.g.
+                0.5 applied to a 1024x1024 image results in a 512x512 image for a 4x
+                reduction in pixels.
+
+        Returns:
+            The four bands of the image in a tuple, (red, green, blue, nir).
+
+        Raises:
+            FileNotFoundError: If file cannot be read, e.g. the path does not exist or
+                the file is of an invalid type.
+        """
+
         image_bgr: NDArray[np.uint8] = cast(NDArray[np.uint8], cv2.imread(file))
         print(NDArray[np.uint8])
         if image_bgr is None:
@@ -92,10 +116,12 @@ class CloudMask:
         Compute the NDSI for each pixel using the green and near infrared
         bands using the formula:
         (Green - NIR) / (Green + NIR)
+
         Returns:
             An MxN float array with each pixel representing the computed
             NDSI.
         """
+
         return cast(
             NDArray[np.floating[Any]],
             (self._band_green.astype(float) - self._band_nir.astype(float))
@@ -109,6 +135,7 @@ class CloudMask:
             An MxN float array with each pixel representing the average
             brightness across all 4 channels.
         """
+
         return cast(
             NDArray[np.floating[Any]],
             (
@@ -129,6 +156,7 @@ class CloudMask:
             input image, where a value of True indicates that the
             corresponding pixel in the input image is part of a cloud.
         """
+
         ndsi: NDArray[np.floating[Any]] = self._compute_ndsi()
         brightness: NDArray[np.floating[Any]] = self._compute_brightness()
         return cast(
@@ -141,7 +169,18 @@ class CloudMask:
     def apply_cloud_mask(
         self, cloud_mask: NDArray[np.bool_]
     ) -> NDArray[np.floating[Any]]:
-        """Combine bands and apply cloud mask."""
+        """
+        Combine bands and apply cloud mask.
+
+        Args:
+            cloud_mask: A boolean array with a shape matching the image height and
+                width, where 'False' represents a pixel that should be masked.
+
+        Returns:
+            The masked image, with clouded areas (as specified by the cloud_mask
+            arg) set to NaN.
+        """
+
         bands = [self._band_red, self._band_green, self._band_blue, self._band_nir]
 
         masked_image = np.array(
@@ -162,11 +201,20 @@ class CloudMask:
 
     @staticmethod
     def cloud_cover_fraction(cloud_mask: NDArray[np.bool_]) -> float:
-        """Compute the fraction of cloud_mask is covered in cloud.
+        """
+        Compute the fraction of cloud_mask is covered in cloud.
 
         Take an existing cloud mask and compute what fraction is cloud. It is
         assumed clouded pixels are True, non-clouded pixels are False.
+
+        Args:
+            cloud_mask: A boolean array with a shape matching the image height and
+                width, where 'False' represents a pixel that should be masked.
+
+        Returns:
+            a float representing the ratio of masked image : image.
         """
+
         return cast(float, cloud_mask.sum() / cloud_mask.size)
 
 
