@@ -9,6 +9,19 @@ from typing import Any
 
 # Define a function to preprocess an image from an .npz file
 def preprocess_npz(npz_path: str) -> NDArray[np.floating[Any]]:
+    """
+    Args:
+        npz_path: Path to the .npz file containing the rgb image as a numpy array under
+            key "image".
+
+    Returns:
+        A 4-dimensional array containing [the image as bgr], as the model accepts an
+        additional dimension representing batches of images.
+
+    Raises:
+        ValueError: If the input npz does not represent an RGB image with shape
+            (x, y, 3).
+    """
 
     # Load the .npz file
     data = np.load(npz_path)
@@ -38,27 +51,12 @@ def preprocess_npz(npz_path: str) -> NDArray[np.floating[Any]]:
     return image_batch
 
 
-"""
-# Example usage:
-npz_path = "input/chunk1_20181215T183751_20181215T184316_T11SKT.TCI_RGB_site49_ID3.npz" # Path to the .npz file
-image_batch = preprocess_npz(npz_path) # Preprocess the image
-
-# Load the model from the model_maker.py script trained on the traineddata folder
-model = tf.keras.models.load_model('unet_coastline_model.h5')
-
-# Make prediction
-prediction = model.predict(image_batch)
-
-# Display the prediction using matplotlib
-# If the model produces a segmentation mask, display it accordingly
-plt.imshow(prediction[0])  # Display the first image in the batch
-plt.show()
-"""
-
-
 def make_prediction(model_path: str, source_path: str, target_path: str) -> None:
     """
-    Parameters:
+    Runs the specified network on a source image, and saves its output to the target
+    path.
+
+    Args:
         model_path: Path to the saved model, e.g. "unet_coastline_model.h5".
         source_path: Path to the source image as an npz.
         target_path: Path to save prediction to. Must end with a valid file extension e.g. "prediction.png".
