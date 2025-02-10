@@ -10,12 +10,12 @@ from typing import Any
 
 
 # Define paths
-npz_folder = "traineddata"  # Replace with your folder path containing .npz files
+npz_folder = "TRAINED_DATA/NPZ_FILES"  # Replace with your folder path containing .npz files
 output_model_path = "unet_coastline_model.h5"  # File to save trained model
 
 # Step 1: Load data from `.npz` files
-input_data = []
-label_data = []
+input_array = []
+label_array = []
 
 # Track skipped files for debugging
 skipped_files = []
@@ -50,7 +50,7 @@ for file in os.listdir(npz_folder):
 
         # Resize images and labels to a fixed size (256x256)
         target_size = (256, 256)
-        input_data.append(
+        input_array.append(
             cv2.resize(input_image, target_size)
         )  # Resize the input image
         label_resized = cv2.resize(
@@ -79,16 +79,16 @@ for file in os.listdir(npz_folder):
             skipped_files.append(file)  # Track the skipped files
             continue  # Skip labels with unexpected shape
 
-        label_data.append(label_resized)
+        label_array.append(label_resized)
 
 # Check how many samples were skipped
 print(f"Skipped {len(skipped_files)} files due to label shape issues.")
 print(f"Skipped files: {skipped_files}")
 
 # Ensure input_data and label_data have the same length
-if len(input_data) != len(label_data):
+if len(input_array) != len(label_array):
     print(
-        f"Mismatch in number of samples: input_data has {len(input_data)} samples, label_data has {len(label_data)} samples."
+        f"Mismatch in number of samples: input_data has {len(input_array)} samples, label_data has {len(label_array)} samples."
     )
     mismatch_files = [
         f
@@ -97,12 +97,12 @@ if len(input_data) != len(label_data):
     ]
     print(f"Files causing the mismatch: {mismatch_files}")
 else:
-    print(f"Loaded {len(input_data)} samples successfully.")
+    print(f"Loaded {len(input_array)} samples successfully.")
 
 # If data lengths are consistent, proceed to train-test split
-if len(input_data) == len(label_data):
-    input_array = np.array(input_data)
-    label_array = np.array(label_data)
+if len(input_array) == len(label_array):
+    input_array = np.array(input_array)
+    label_array = np.array(label_array)
 
     # Step 2: Preprocess data (e.g., normalize input, ensure labels are correct shape)
     input_array = (
