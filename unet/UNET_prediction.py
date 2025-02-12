@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from numpy.typing import NDArray
 from pathlib import Path
 from typing import Any, Tuple
+from numpy.lib.npyio import NpzFile
 
 
 class ImageProcessor:
@@ -25,7 +26,7 @@ class ImageProcessor:
                 (x, y, 3).
         """
         # Load the .npz file
-        data: NDArray[np.floating[Any]] = np.load(npz_path)
+        data: NpzFile = np.load(npz_path)  # Correct type hint
 
         # grab the 'image' key which holds the relevant image data
         image: NDArray[np.floating[Any]] = data["image"]
