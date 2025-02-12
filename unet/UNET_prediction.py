@@ -32,7 +32,7 @@ class ImageProcessor:
         image = data["image"]
 
         # Resize the image to 256x256
-        image_resized: NDArray[np.floating[Any]] = cv2.resize(image, (256, 256)).astype(np.float32)
+        image_resized = cv2.resize(image, (256, 256))
 
         # Normalize the image to [0, 1]
         image_normalized: NDArray[np.floating[Any]] = (
