@@ -1,4 +1,3 @@
-
 # This script demonstrates how to preprocess an image from an .npz file and make a prediction using a trained model.
 import cv2
 import numpy as np
@@ -28,18 +27,16 @@ class ImageProcessor:
         # Load the .npz file
         data: NDArray[np.floating[Any]] = np.load(npz_path)
 
-
         # grab the 'image' key which holds the relevant image data
         image: NDArray[np.floating[Any]] = data["image"]
-
 
         # Resize the image to 256x256
         image_resized: NDArray[np.floating[Any]] = cv2.resize(image, (256, 256))
 
-
         # Normalize the image to [0, 1]
-        image_normalized: NDArray[np.floating[Any]] = image_resized.astype("float32") / 255.0
-
+        image_normalized: NDArray[np.floating[Any]] = (
+            image_resized.astype("float32") / 255.0
+        )
 
         # Ensure the image has 3 channels (RGB) (not greyscale)
         if image_normalized.shape[-1] != 3:
@@ -69,13 +66,13 @@ class ModelPredictor:
             source_path: Path to the source image as an npz.
             target_path: Path to save prediction to. Must end with a valid file extension e.g. "prediction.png".
         """
-        image_batch: NDArray[np.floating[Any]] = ImageProcessor.preprocess_npz(source_path)
+        image_batch: NDArray[np.floating[Any]] = ImageProcessor.preprocess_npz(
+            source_path
+        )
         model: tf.keras.Model = tf.keras.models.load_model(model_path)
         prediction: NDArray[np.floating[Any]] = model.predict(image_batch)
         plt.imshow(prediction[0])
         plt.savefig(target_path)
-
-
 
 
 # Example usage
