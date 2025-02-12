@@ -15,6 +15,7 @@ MODEL_PATH = os.path.join(Path(__file__).parent.absolute(), "unet_coastline_mode
 SOURCE_PATH = "Sentinel2_11_001-20241014T065525Z-001/Sentinel2_11_001/chunk1_20181215T183751_20181215T184316_T11SKT.TCI_RGB_site49_ID3.npz"
 TARGET_PATH = "prediction_images/prediction_image.png"
 
+
 class UnetPredictionTests(unittest.TestCase):
     def test_image_produced(self) -> None:
         """
@@ -28,9 +29,6 @@ class UnetPredictionTests(unittest.TestCase):
         # Make prediction and save the result to the target path
         UNET_prediction.make_prediction(MODEL_PATH, SOURCE_PATH, TARGET_PATH)
 
-    
-
 
 if __name__ == "__main__":
     unittest.main()
-
