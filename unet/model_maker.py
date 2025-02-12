@@ -1,124 +1,102 @@
-# modules required
-
 import os
 import numpy as np
+from numpy.typing import NDArray
 from sklearn.model_selection import train_test_split  # type: ignore
 import tensorflow as tf  # type: ignore
 from tensorflow.keras import layers, models  # type: ignore
 import cv2  # For resizing images if needed
 from typing import Any
 
-
 # Define paths
-npz_folder = (
-    "TRAINED_DATA/NPZ_FILES"  # Replace with your folder path containing .npz files
-)
-output_model_path = "unet_coastline_model.h5"  # File to save trained model
+npz_folder: str = "TRAINED_DATA/NPZ_FILES"
+output_model_path: str = "unet_coastline_model.h5"
 
 # Step 1: Load data from `.npz` files
-input_array = []
-label_array = []
+input_array: list[NDArray[Any]] = []
+label_array: list[NDArray[Any]] = []
 
 # Track skipped files for debugging
-skipped_files = []
-mismatch_files = []  # Track files causing data mismatch
+skipped_files: list[str] = []
+mismatch_files: list[str] = []
 
-# Iterate over all .npz files in the trainddata folder to grab the relevant keys - 'image' and 'label'
+# Iterate over all .npz files
 for file in os.listdir(npz_folder):
     if file.endswith(".npz"):
-        data = np.load(os.path.join(npz_folder, file))
+        data: dict[str, NDArray[Any]] = np.load(os.path.join(npz_folder, file))
         print(f"Loading {file}...")
 
         # Check the available keys in the current file
         print(f"Available keys in {file}: {data.keys()}")
 
-        # Load input image from the 'image' key
+        # Load input image
         if "image" in data:
-            input_image = data["image"]
+            input_image: NDArray[Any] = data["image"]
         else:
             print(f"Skipping {file}, 'image' key not found.")
-            continue  # Skip if no appropriate image key exists
+            continue
 
-        # Load label from the 'label' key (adjust based on your dataset)
+        # Load label
         if "label" in data:
-            label = data["label"]
+            label: NDArray[Any] = data["label"]
         else:
             print(f"Skipping {file}, 'label' key not found.")
-            continue  # Skip if no appropriate label key exists
+            continue
 
-        # Print the shape of the image and label to check compatibility
         print(f"Input shape: {input_image.shape}")
         print(f"Label shape: {label.shape}")
 
-        # Resize images and labels to a fixed size (256x256)
-        target_size = (256, 256)
-        input_array.append(
-            cv2.resize(input_image, target_size)
-        )  # Resize the input image
-        label_resized = cv2.resize(
-            label, target_size
-        )  # Resize label to match input size
+        # Resize images and labels to 256x256
+        target_size: tuple[int, int] = (256, 256)
+        input_resized: NDArray[Any] = cv2.resize(input_image, target_size)
+        label_resized: NDArray[Any] = cv2.resize(label, target_size)
 
         # Ensure the label has the correct number of channels
-        if (
-            label_resized.ndim == 2
-        ):  # If label is 2D, add a dummy channel for segmentation (1 class)
+        if label_resized.ndim == 2:
             label_resized = np.expand_dims(label_resized, axis=-1)
 
-        # Ensure the label has 3 channels, one for each class (adjust according to your task)
-        if (
-            label_resized.shape[-1] == 1
-        ):  # Assuming the label has a single channel (e.g., class IDs)
-            label_resized = tf.keras.utils.to_categorical(
-                label_resized, num_classes=3
-            )  # Adjust `num_classes`
+        if label_resized.shape[-1] == 1:
+            label_resized = tf.keras.utils.to_categorical(label_resized, num_classes=3)
 
-        # Check if all labels have the same number of channels (e.g., 3 channels)
         if label_resized.shape[-1] != 3:
             print(
-                f"Warning: Label shape {label_resized.shape} does not have 3 channels. Skipping this example."
+                f"Warning: Label shape {label_resized.shape} does not have 3 channels. Skipping {file}."
             )
-            skipped_files.append(file)  # Track the skipped files
-            continue  # Skip labels with unexpected shape
+            skipped_files.append(file)
+            continue
 
+        input_array.append(input_resized)
         label_array.append(label_resized)
 
-# Check how many samples were skipped
+# Check skipped files
 print(f"Skipped {len(skipped_files)} files due to label shape issues.")
 print(f"Skipped files: {skipped_files}")
 
-# Ensure input_data and label_data have the same length
+# Ensure input_data and label_data match
 if len(input_array) != len(label_array):
     print(
-        f"Mismatch in number of samples: input_data has {len(input_array)} samples, label_data has {len(label_array)} samples."
+        f"Mismatch in number of samples: input={len(input_array)}, label={len(label_array)}."
     )
     mismatch_files = [
         f
         for f in os.listdir(npz_folder)
         if f.endswith(".npz") and f not in skipped_files
     ]
-    print(f"Files causing the mismatch: {mismatch_files}")
+    print(f"Files causing mismatch: {mismatch_files}")
 else:
     print(f"Loaded {len(input_array)} samples successfully.")
 
-# If data lengths are consistent, proceed to train-test split
+# Convert to NumPy arrays
 if len(input_array) == len(label_array):
-    input_array = np.array(input_array)
-    label_array = np.array(label_array)
+    input_data: NDArray[np.float32] = np.array(input_array, dtype=np.float32) / 255.0
+    label_data: NDArray[np.int32] = np.array(label_array, dtype=np.int32)
 
-    # Step 2: Preprocess data (e.g., normalize input, ensure labels are correct shape)
-    input_array = (
-        input_array.astype("float32") / 255.0
-    )  # Scale to [0, 1] if working with images
-    label_array = label_array.astype("int32")  # Ensure labels are integers if needed
-
-    # Step 3: Split data into training and validation sets
+    # Train-test split
     X_train, X_val, y_train, y_val = train_test_split(
-        input_array, label_array, test_size=0.2, random_state=42
+        input_data, label_data, test_size=0.2, random_state=42
     )
 
     # Step 4: Define the U-Net model
-    def unet_model(input_shape: Any) -> Any:
+    def unet_model(input_shape: tuple[int, int, int]) -> tf.keras.Model:
         inputs = layers.Input(input_shape)
         c1 = layers.Conv2D(64, (3, 3), activation="relu", padding="same")(inputs)
         c1 = layers.MaxPooling2D((2, 2))(c1)
@@ -128,27 +106,22 @@ if len(input_array) == len(label_array):
         u2 = layers.UpSampling2D((2, 2))(c3)
         u2 = layers.Conv2D(128, (3, 3), activation="relu", padding="same")(u2)
         u1 = layers.UpSampling2D((2, 2))(u2)
-        outputs = layers.Conv2D(3, (1, 1), activation="softmax")(
-            u1
-        )  # Multi-channel output (3 channels)
-        model = models.Model(inputs, outputs)
-        return model
+        outputs = layers.Conv2D(3, (1, 1), activation="softmax")(u1)
+        return models.Model(inputs, outputs)
 
-    # Step 5: Compile and train the model
-    input_shape = X_train.shape[1:]  # Assume inputs are (height, width, channels)
-    model = unet_model(input_shape)
+    # Compile and train model
+    input_shape: tuple[int, int, int] = X_train.shape[1:]
+    model: tf.keras.Model = unet_model(input_shape)
 
     model.compile(
         optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"]
     )
-
     history = model.fit(
         X_train, y_train, validation_data=(X_val, y_val), epochs=20, batch_size=16
     )
 
-    # Step 6: Save the trained model as `.h5`
+    # Save model
     model.save(output_model_path)
-
     print(f"Model saved to {output_model_path}")
 else:
     print("Data mismatch detected. Model training aborted.")
