@@ -1,7 +1,7 @@
 # This script demonstrates how to preprocess an image from an .npz file and make a prediction using a trained model.
 import cv2
 import numpy as np
-import tensorflow as tf
+import tensorflow as tf  # type: ignore
 import matplotlib.pyplot as plt
 from numpy.typing import NDArray
 from pathlib import Path
@@ -29,7 +29,7 @@ class ImageProcessor:
         data: NpzFile = np.load(npz_path)  # Correct type hint
 
         # grab the 'image' key which holds the relevant image data
-        image: NDArray[np.floating[Any]] = data["image"].astype(np.float32)
+        image = data["image"]
 
         # Resize the image to 256x256
         image_resized: NDArray[np.floating[Any]] = cv2.resize(image, (256, 256))
