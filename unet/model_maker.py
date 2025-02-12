@@ -10,7 +10,9 @@ from typing import Any
 
 
 # Define paths
-npz_folder = "TRAINED_DATA/NPZ_FILES"  # Replace with your folder path containing .npz files
+npz_folder = (
+    "TRAINED_DATA/NPZ_FILES"  # Replace with your folder path containing .npz files
+)
 output_model_path = "unet_coastline_model.h5"  # File to save trained model
 
 # Step 1: Load data from `.npz` files
