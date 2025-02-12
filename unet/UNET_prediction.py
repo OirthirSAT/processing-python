@@ -29,7 +29,7 @@ class ImageProcessor:
         data: NpzFile = np.load(npz_path)  # Correct type hint
 
         # grab the 'image' key which holds the relevant image data
-        image: NDArray[np.floating[Any]] = data["image"]
+        image: NDArray[np.floating[Any]] = data["image"].astype(np.float32)
 
         # Resize the image to 256x256
         image_resized: NDArray[np.floating[Any]] = cv2.resize(image, (256, 256))
