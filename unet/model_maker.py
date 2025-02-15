@@ -8,7 +8,7 @@ import cv2  # For resizing images if needed
 from typing import Any
 
 # Define paths
-npz_folder: str = "TRAINED_DATA/NPZ_FILES"
+npz_folder: str = "trained_data"
 output_model_path: str = "unet_coastline_model.h5"
 
 # Step 1: Load data from `.npz` files
