@@ -29,14 +29,16 @@ class MarchingSquares:
             A numeric array representing the image after being downscaled and converted
             to hsv format.
         """
-        image_bgr: list[[float,float,float]] = cv2.imread(filename)
+        image_bgr: list[[float, float, float]] = cv2.imread(filename)
 
         # If necessary for performance speed, compress the file
         new_size: _POINT = (
             int(image_bgr.shape[0] * downsample_factor),
             int(image_bgr.shape[1] * downsample_factor),
         )
-        image_resized: _NUMERIC_ARRAY = cv2.resize(image_bgr, new_size, interpolation=cv2.INTER_AREA)
+        image_resized: _NUMERIC_ARRAY = cv2.resize(
+            image_bgr, new_size, interpolation=cv2.INTER_AREA
+        )
 
         # For the chosen segmentation method it has been decided to segment
         # the image using the hue channel of a converted hsv image to
@@ -73,11 +75,11 @@ class MarchingSquares:
     @staticmethod
     def _point_array(image: _NUMERIC_ARRAY) -> tuple[NDArray[bool], int, int]:
         """Convert image points to lookup array.
-        
+
         This extracts the points from the image and stores them in an array with each
         point either corresponding to black or white. The coordinates for x_len and
         y_len are doubled and decreased by one as vector lines will be drawn halfway
-        between these points. This can be changed to match the original resolution of 
+        between these points. This can be changed to match the original resolution of
         the image, however vectors will then be made of floating point coordinates.
 
         Args:
@@ -88,8 +90,10 @@ class MarchingSquares:
             a value of True designates a black point and False a white point; [1], [2]
             the new height and width of the image, expanded for marching squares.
         """
-        state_array: NDArray[bool] = image[::-1,:]
-        y_len, x_len = np.array(image.shape)*2 - 1
+
+        state_array: NDArray[bool] = image[::-1, :]
+        y_len, x_len = np.array(image.shape) * 2 - 1
+
         return (state_array, y_len, x_len)
 
     @staticmethod
@@ -117,16 +121,16 @@ class MarchingSquares:
             through this point.
         """
         # Convert to state_array coordinates
-        _i = (i-1)//2
-        _j = (j-1)//2
+        _i = (i - 1) // 2
+        _j = (j - 1) // 2
 
         # Compute corner values
-        A = int(state_array[_j   , _i  ])
-        B = int(state_array[_j   , _i+1])
-        C = int(state_array[_j+1 , _i  ])
-        D = int(state_array[_j+1 , _i+1])
+        A = int(state_array[_j, _i])
+        B = int(state_array[_j, _i+1])
+        C = int(state_array[_j+1, _i])
+        D = int(state_array[_j+1, _i+1])
 
-        return A + B*2 + C*4 + D*8
+        return A + B * 2 + C * 4 + D * 8
 
     @staticmethod
     def _generate_edges(i: int, j: int, index: int) -> list[_VECTOR] | None:
@@ -240,7 +244,7 @@ class MarchingSquares:
     @staticmethod
     def _vector_shapes(vectors: list[list[_VECTOR]]) -> list[list[_POINT]]:
         """Merge adjacent vector lines into coastline vector.
-        
+
         The purpose of this funciton is to connect all adjacent vector lines to
         create one long "coastline vector". This is done by creating a set of the
         vector lines from the previous function. The first in this set is popped out
