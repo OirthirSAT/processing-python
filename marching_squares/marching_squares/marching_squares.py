@@ -29,14 +29,14 @@ class MarchingSquares:
             A numeric array representing the image after being downscaled and converted
             to hsv format.
         """
-        image_bgr = cv2.imread(filename)
+        image_bgr: list[[float,float,float]] = cv2.imread(filename)
 
         # If necessary for performance speed, compress the file
         new_size: _POINT = (
             int(image_bgr.shape[0] * downsample_factor),
             int(image_bgr.shape[1] * downsample_factor),
         )
-        image_resized = cv2.resize(image_bgr, new_size, interpolation=cv2.INTER_AREA)
+        image_resized: _NUMERIC_ARRAY = cv2.resize(image_bgr, new_size, interpolation=cv2.INTER_AREA)
 
         # For the chosen segmentation method it has been decided to segment
         # the image using the hue channel of a converted hsv image to
@@ -45,7 +45,8 @@ class MarchingSquares:
 
     @staticmethod
     def _otsu_segmentation(image: _NUMERIC_ARRAY) -> tuple[float, _NUMERIC_ARRAY]:
-        """
+        """Use OTSU segmentation to classify land and sea.
+
         Uses the Otsu segmentation method to distinguish between land and sea to
         extract the coastline vector. This will be later replaced by the UNET section
         of the pipeline. The Otsu threshold works by creating a histogram of the hue
@@ -61,7 +62,7 @@ class MarchingSquares:
             A tuple containing [0] the threshold value between land and sea and [1] a
             binary valued segmented image where 0 represents sea and 1 land.
         """
-        hue_channel = image[:, :, 0]
+        hue_channel: _NUMERIC_ARRAY = image[:, :, 0]
         return cv2.threshold(
             hue_channel,
             0,
@@ -70,84 +71,43 @@ class MarchingSquares:
         )
 
     @staticmethod
-    def _sort_key(point: _POINT) -> int:
-        """
-        Creating a function that will weight the dictionary points such that they can
-        be sorted from left to right starting at the bottom left.
-
-        Args:
-            point: A tuple representing a point in an image as a [row, col] index.
-
-        Returns:
-            An integer key that uniquely represents this point, and maps a strong
-            ordering onto all points where a < b => a[1] < b[1] or a[1] == b[1]
-            and a[0] < b[0].
-        """
-        return point[1] * 100 + point[0]
-
-    @staticmethod
-    def _point_array(image: _NUMERIC_ARRAY) -> tuple[dict[_POINT, bool], int, int]:
-        """
-        This extracts the points from the image and stores them in a dictionary with
-        each point either corresponding to black or white. The coordinates are doubled
-        and incresed by one as vector lines will be drawn halfway between these points.
-        This can be changed to match the original resolution of the image, however
-        vectors will then be made of floating point coordinates.
+    def _point_array(image: _NUMERIC_ARRAY) -> tuple[NDArray[bool], int, int]:
+        """Convert image points to lookup array.
+        
+        This extracts the points from the image and stores them in an array with each
+        point either corresponding to black or white. The coordinates for x_len and
+        y_len are doubled and decreased by one as vector lines will be drawn halfway
+        between these points. This can be changed to match the original resolution of 
+        the image, however vectors will then be made of floating point coordinates.
 
         Args:
             image: An array representing the image in hsv.
 
         Returns:
-            A tuple containing [0] a dictionary from point to its boolean value, where
+            A tuple containing [0] an array of boolean values for each point, where
             a value of True designates a black point and False a white point; [1], [2]
             the new height and width of the image, expanded for marching squares.
         """
-
-        black_list: list[_POINT] = []
-        white_list: list[_POINT] = []
-
-        x = image.shape[0] - 1
-        y = image.shape[1] - 1
-
-        for i in range(x + 1):
-            for j in range(y + 1):
-                if image[i][j] == 1:
-                    black_list.append((j, x - i))
-                else:
-                    white_list.append((j, x - i))
-
-        black = np.array(black_list) * 2 + 1
-        white = np.array(white_list) * 2 + 1
-
-        xblack: list[int] = [point[0] for point in black]
-        yblack: list[int] = [point[1] for point in black]
-
-        xwhite: list[int] = [point[0] for point in white]
-        ywhite: list[int] = [point[1] for point in white]
-
-        state: dict[_POINT, bool] = {tuple(point): True for point in black}
-        state.update({tuple(point): False for point in white})
-        sorted_dict: list[tuple[_POINT, bool]] = sorted(
-            state.items(), key=lambda x: MarchingSquares._sort_key(x[0])
-        )
-
-        return (dict(sorted_dict), max(xblack + xwhite), max(yblack + ywhite))
+        state_array: NDArray[bool] = image[::-1,:]
+        y_len, x_len = np.array(image.shape)*2 - 1
+        return (state_array, y_len, x_len)
 
     @staticmethod
-    def _get_value(state_dict: dict[_POINT, bool], i: int, j: int) -> int:
-        """
+    def _get_value(state_array: NDArray[bool], i: int, j: int) -> int:
+        """Compute weighted marching squares pixel value.
+
         Splitting the point array space into squares 1 pixel wide. These squares
         have corners lying on either a black or white point. The square as a whole
         adopts a value through the marching squares method, for a square centred at
         (2,2) it is corners at A(1,1),B(3,1),C(1,3) and D(3,3). Associating each of
         these corners with a binary weighting value A:2^0, B:2^1, C:2^2, D:2^3 and then
-        summing these values multiplied by either 0 or 1 dependeing on the state of the
+        summing these values multiplied by either 0 or 1 depending on the state of the
         point they sit on 1 for white and 0 for black will produce a value from 0 to
-        15. Each of these values coresponds to a line shape which will be used to
+        15. Each of these values corresponds to a line shape which will be used to
         create a coastline vector.
 
         Args:
-            state_dict: A mapping from point to a bool representing its colour, where
+            state_array: A mapping from point to a bool representing its colour, where
                 True = black and False = white.
             i: The height value of the point to evaluate.
             j: The width value of the point to evaluate.
@@ -156,16 +116,22 @@ class MarchingSquares:
             An integer corresponding to the shape of the line that will be drawn
             through this point.
         """
+        # Convert to state_array coordinates
+        _i = (i-1)//2
+        _j = (j-1)//2
 
-        A = int(state_dict[(i, j)])
-        B = int(state_dict[(i + 2, j)])
-        C = int(state_dict[(i, j + 2)])
-        D = int(state_dict[(i + 2, j + 2)])
-        return A + B * 2 + C * 4 + D * 8
+        # Compute corner values
+        A = int(state_array[_j   , _i  ])
+        B = int(state_array[_j   , _i+1])
+        C = int(state_array[_j+1 , _i  ])
+        D = int(state_array[_j+1 , _i+1])
+
+        return A + B*2 + C*4 + D*8
 
     @staticmethod
     def _generate_edges(i: int, j: int, index: int) -> list[_VECTOR] | None:
-        """
+        """Generate edge line associated with square index.
+
         Generates the line associated with the index of the square. This is done by
         outputting a start and end point for a line. Indexes of 6 and 9 are special in
         that two lines are created.
@@ -233,14 +199,14 @@ class MarchingSquares:
 
     @staticmethod
     def _list_vectors(
-        state_dict: dict[_POINT, bool], x_len: int, y_len: int
+        state_array: NDArray[bool], x_len: int, y_len: int
     ) -> list[list[_VECTOR]]:
         """
         Args:
-            state_dict: A mapping of points to their black/white state, with True
+            state_array: A mapping of points to their black/white state, with True
                 representing a black state and False a white state.
-            x_len: The width of the image represented by state_dict.
-            y_len: The height of the image represented by state_dict.
+            x_len: The width of the image represented by state_array.
+            y_len: The height of the image represented by state_array.
 
         Returns:
             A list of lists of line segments representing the border generated by
@@ -255,7 +221,7 @@ class MarchingSquares:
 
             for i in range(1, x_len, 2):
 
-                index: int = MarchingSquares._get_value(state_dict, i, j)
+                index: int = MarchingSquares._get_value(state_array, i, j)
 
                 if index == 6 or index == 9:
 
@@ -273,7 +239,9 @@ class MarchingSquares:
 
     @staticmethod
     def _vector_shapes(vectors: list[list[_VECTOR]]) -> list[list[_POINT]]:
-        """The purpose of this funciton is to connect all adjacent vector lines to
+        """Merge adjacent vector lines into coastline vector.
+        
+        The purpose of this funciton is to connect all adjacent vector lines to
         create one long "coastline vector". This is done by creating a set of the
         vector lines from the previous function. The first in this set is popped out
         and the start and end points are added to a shape vector. The set
@@ -365,7 +333,8 @@ class MarchingSquares:
     def _show_coastline(
         image: _NUMERIC_ARRAY, shapes: list[list[_POINT]], x_len: int, y_len: int
     ) -> list[_POINT]:
-        """
+        """Plot coastline figure.
+
         This is the plotting function that will plot all points making up the
         coastline.
 
@@ -417,7 +386,11 @@ class MarchingSquares:
 
         image = MarchingSquares._readfile(file, downsample_factor)
         _, threshold_image = MarchingSquares._otsu_segmentation(image)
-        state_dict, x_len, y_len = MarchingSquares._point_array(threshold_image)
-        vectors = MarchingSquares._list_vectors(state_dict, x_len, y_len)
+        state_array, x_len, y_len = MarchingSquares._point_array(threshold_image)
+        vectors = MarchingSquares._list_vectors(state_array, x_len, y_len)
         shapes = MarchingSquares._vector_shapes(vectors)
         _ = MarchingSquares._show_coastline(image, shapes, x_len, y_len)
+
+file:str = "../Aberdeenshire.tif"
+downsample_factor:float = 0.05
+MarchingSquares.run(file,downsample_factor)
