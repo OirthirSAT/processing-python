@@ -126,9 +126,9 @@ class MarchingSquares:
 
         # Compute corner values
         A = int(state_array[_j, _i])
-        B = int(state_array[_j, _i+1])
-        C = int(state_array[_j+1, _i])
-        D = int(state_array[_j+1, _i+1])
+        B = int(state_array[_j, _i + 1])
+        C = int(state_array[_j + 1, _i])
+        D = int(state_array[_j + 1, _i + 1])
 
         return A + B * 2 + C * 4 + D * 8
 
