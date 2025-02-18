@@ -390,7 +390,3 @@ class MarchingSquares:
         vectors = MarchingSquares._list_vectors(state_array, x_len, y_len)
         shapes = MarchingSquares._vector_shapes(vectors)
         _ = MarchingSquares._show_coastline(image, shapes, x_len, y_len)
-
-file:str = "../Aberdeenshire.tif"
-downsample_factor:float = 0.05
-MarchingSquares.run(file,downsample_factor)
