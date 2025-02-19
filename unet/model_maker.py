@@ -4,7 +4,7 @@ from numpy.typing import NDArray
 from sklearn.model_selection import train_test_split  # type: ignore
 import tensorflow as tf  # type: ignore
 from tensorflow.keras import layers, models  # type: ignore
-import cv2  # type: ignore
+import cv2  # type: ignore[assignment]
 from typing import Any
 
 # Define paths
