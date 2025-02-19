@@ -1,5 +1,8 @@
 # This script demonstrates how to preprocess an image from an .npz file and make a prediction using a trained model.
-import cv2  # type: ignore[assignment]
+
+# fmt: off
+import cv2  
+# fmt: on
 import os
 import numpy as np
 import tensorflow as tf  # type: ignore

@@ -1,4 +1,6 @@
-import cv2  # type: ignore[assignment]
+# fmt: off
+import cv2  
+# fmt: on
 import os
 import numpy as np
 import tensorflow as tf  # type: ignore
