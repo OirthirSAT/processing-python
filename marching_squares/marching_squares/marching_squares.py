@@ -29,7 +29,7 @@ class MarchingSquares:
             A numeric array representing the image after being downscaled and converted
             to hsv format.
         """
-        image_bgr: list[[float, float, float]] = cv2.imread(filename)
+        image_bgr: _NUMERIC_ARRAY = cv2.imread(filename, cv2.IMREAD_UNCHANGED)
 
         # If necessary for performance speed, compress the file
         new_size: _POINT = (
@@ -91,13 +91,13 @@ class MarchingSquares:
             the new height and width of the image, expanded for marching squares.
         """
 
-        state_array: NDArray[bool] = image[::-1, :]
+        state_array: NDArray[np.bool] = image[::-1, :]
         y_len, x_len = np.array(image.shape) * 2 - 1
 
         return (state_array, y_len, x_len)
 
     @staticmethod
-    def _get_value(state_array: NDArray[bool], i: int, j: int) -> int:
+    def _get_value(state_array: NDArray[np.bool], i: int, j: int) -> int:
         """Compute weighted marching squares pixel value.
 
         Splitting the point array space into squares 1 pixel wide. These squares
