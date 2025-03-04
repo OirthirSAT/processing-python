@@ -73,7 +73,7 @@ class MarchingSquares:
         )
 
     @staticmethod
-    def _point_array(image: _NUMERIC_ARRAY) -> tuple[NDArray[bool], int, int]:
+    def _point_array(image: _NUMERIC_ARRAY) -> tuple[NDArray[np.bool], int, int]:
         """Convert image points to lookup array.
 
         This extracts the points from the image and stores them in an array with each
@@ -203,7 +203,7 @@ class MarchingSquares:
 
     @staticmethod
     def _list_vectors(
-        state_array: NDArray[bool], x_len: int, y_len: int
+        state_array: NDArray[np.bool], x_len: int, y_len: int
     ) -> list[list[_VECTOR]]:
         """
         Args:
