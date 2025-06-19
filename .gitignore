@@ -166,3 +166,4 @@ cython_debug/
 *__pycache__/
 *.npz
 *.h5
+*.tiff
