@@ -85,4 +85,5 @@ def pipeline(image_path):
         json.dump(metadata, f, indent=2)
     print(f"[INFO] Saved metadata JSON to {json_path}")
 
+
 pipeline(image_path)
