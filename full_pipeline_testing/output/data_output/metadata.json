@@ -1,0 +1,9 @@
+{
+  "mask_coverage": 0.0,
+  "dimensions": [
+    4,
+    1024,
+    1024
+  ],
+  "image_path": "raw_landsat_images/Dundee_LC09_204021_20240322.tiff"
+}
