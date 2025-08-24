@@ -3,6 +3,7 @@ import tifffile
 import numpy as np
 import matplotlib.pyplot as plt
 from modified_cloud_mask import CloudMask 
+from modified_coastline_extraction import CoastlineExtractor
 
 image_path = "raw_landsat_images/Dundee_LC09_204021_20240322.tiff"
 output_dir = "output"
@@ -84,6 +85,38 @@ def pipeline(image_path):
     with open(json_path, 'w') as f:
         json.dump(metadata, f, indent=2)
     print(f"[INFO] Saved metadata JSON to {json_path}")
+
+def pipeline(image_path):
+    image = load_image(image_path)
+    show_band_stats(image)
+    save_rgb_preview(image)
+
+    mask = run_cloud_masking(image, image_path)
+
+    metadata = {
+        "mask_coverage": float(mask.sum()) / mask.size,
+        "dimensions": image.shape,
+        "image_path": image_path
+    }
+
+    print("[INFO] Metadata:")
+    for k, v in metadata.items():
+        print(f"   {k}: {v}")
+
+    masker = CloudMask(bands=image)
+    masked_image = masker.apply_cloud_mask(mask)
+
+    print("[INFO] Running coastline extraction...")
+    extractor = CoastlineExtractor()
+    results = extractor.run(masked_image, method="otsu")
+
+    plt.imsave(f"{data_output_dir}/ndwi.png", results["ndwi_image"], cmap="gray")
+    plt.imsave(f"{data_output_dir}/binary_mask.png", results["binary_mask"], cmap="gray")
+    plt.imsave(f"{data_output_dir}/overlay.png", results["overlay_image"])
+
+    print(f"[INFO] Extracted {len(results['vector_boundary'])} coastline contours")
+
+
 
 
 pipeline(image_path)
