@@ -1,0 +1,17 @@
+General notes:
+- will need debugging after receipt of correctly formatted test images
+
+
+Coastline Extraction:
+- NDWI/NDVI for highlighting water
+- Brown water has moderate NDWI, low to mod NIR, B/G <= 1
+- contains 3 segmentation/clustering algos for testing. OTSU, k means and GMM. why? because 
+
+
+To add and debug:
+- debug everything
+- flask image and data dashboard for debug and optimisation
+- marching squares sub pixel vector extraction
+- Entropy segmentation algorithm given accuracy and ability to ignore null pixels later on
+
+
