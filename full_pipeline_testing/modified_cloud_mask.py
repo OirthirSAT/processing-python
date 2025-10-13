@@ -101,13 +101,17 @@ class CloudMask:
 
         if full_res_image.ndim != 3 or full_res_image.shape[0] < 3:
             raise ValueError("TIFF file must have at least 3 bands (channels).")
-
-        if full_res_image.shape[0] == 4:
-            band_red_full = full_res_image[0, :, :]
-            band_green_full = full_res_image[1, :, :]
-            band_blue_full = full_res_image[2, :, :]
-            band_nir_full = full_res_image[3, :, :]
-        elif full_res_image.shape[0] == 3:
+        #Edited shape index from 0 to 2 to access the number of bands.
+        if full_res_image.shape[2] == 4:
+            # band_red_full = full_res_image[0, :, :]
+            # band_green_full = full_res_image[1, :, :]
+            # band_blue_full = full_res_image[2, :, :]
+            # band_nir_full = full_res_image[3, :, :]
+            band_red_full = full_res_image[:, :, 0]
+            band_green_full = full_res_image[:, :, 1]
+            band_blue_full = full_res_image[:, :, 2]
+            band_nir_full = full_res_image[:, :, 3]
+        elif full_res_image.shape[2] == 3:
             band_red_full = full_res_image[0, :, :]
             band_green_full = full_res_image[1, :, :]
             band_blue_full = full_res_image[2, :, :]
@@ -117,7 +121,7 @@ class CloudMask:
             )
         else:
             raise ValueError(
-                f"Unexpected number of bands ({full_res_image.shape[0]}) in TIFF file."
+                f"Unexpected number of bands ({full_res_image.shape[2]}) in TIFF file."
             )
 
         # Downsample bands for masking
@@ -142,7 +146,7 @@ class CloudMask:
         green = self._band_green.astype(float)
         nir = self._band_nir.astype(float)
         denominator = green + nir
-        denominator[denominator == 0] = 1e-6
+        denominator[denominator == 0] = 1e-6 #safe guard against division by zero
         return cast(NDArray[np.floating[Any]], (green - nir) / denominator)
 
     def _compute_brightness(self) -> NDArray[np.floating[Any]]:
@@ -191,6 +195,7 @@ class CloudMask:
     def visualise_image(image: NDArray[np.floating[Any]]) -> None:
         plt.figure(figsize=(10, 10))
         plt.imshow(image.astype(np.uint8)[:, :, :3])
+        print(image.min(), image.max())
         plt.show()
 
     @staticmethod
@@ -199,7 +204,8 @@ class CloudMask:
 
 
 if __name__ == "__main__":
-    file: str = "../marching_squares/Aberdeenshire.tif"
+    #Have made a test-images folder just outside of image-processing-pipeline as to not upload large files to github.
+    file: str = "../../test-images/Dundee.tif"
 
     cloud_masker = CloudMask(
         tif_path=file, downsample_factor=0.1, ndsi_threshold=1.0, thermal_threshold=0.0
