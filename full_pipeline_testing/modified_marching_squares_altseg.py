@@ -34,13 +34,13 @@ class CoastlineExtractor_MS_altseg:
         return cv2.threshold(hue_channel, 0, 1, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
     @staticmethod
-    def _point_array(image: _NUMERIC_ARRAY) -> tuple[NDArray[np.bool], int, int]:
-        state_array: NDArray[np.bool] = image[::-1, :]
+    def _point_array(image: _NUMERIC_ARRAY) -> tuple[NDArray[bool], int, int]:
+        state_array: NDArray[bool] = image[::-1, :]
         y_len, x_len = np.array(image.shape) * 2 - 1
         return state_array, y_len, x_len
 
     @staticmethod
-    def _get_value(state_array: NDArray[np.bool], i: int, j: int) -> int:
+    def _get_value(state_array: NDArray[bool], i: int, j: int) -> int:
         _i = (i - 1) // 2
         _j = (j - 1) // 2
         A = int(state_array[_j, _i])
@@ -77,7 +77,7 @@ class CoastlineExtractor_MS_altseg:
         return vector
 
     @staticmethod
-    def _list_vectors(state_array: NDArray[np.bool], x_len: int, y_len: int) -> list[list[_VECTOR]]:
+    def _list_vectors(state_array: NDArray[bool], x_len: int, y_len: int) -> list[list[_VECTOR]]:
         vectors: list[list[_VECTOR] | None] = []
         for j in range(1, y_len, 2):
             for i in range(1, x_len, 2):
