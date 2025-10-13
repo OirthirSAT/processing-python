@@ -75,7 +75,7 @@ def save_rgb_preview(image):
     
     print("[INFO] RGB preview saved")
 
-
+#
 def run_cloud_masking(image, image_path):
     
     print("[INFO] Running cloud masking...")
@@ -103,6 +103,7 @@ def run_cloud_masking(image, image_path):
     print(f"[INFO] Saved cloud mask to {mask_path}")
 
     #Applies the mask to our image
+
     masked = masker.apply_cloud_mask(mask_full)
 
     #Saves the masked image
@@ -116,7 +117,6 @@ def run_cloud_masking(image, image_path):
 
 
 def pipeline(image_path, use_altseg=False):
-
     image = load_image(image_path)
     show_band_stats(image)
     save_rgb_preview(image)
