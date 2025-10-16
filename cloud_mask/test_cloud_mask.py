@@ -2,19 +2,26 @@ import unittest
 import numpy as np
 from cloud_mask import CloudMask
 
+BIT_DEPTH = 12 # Assumed bit depth of input imagery
 
 _IMAGE_SHAPE = (4, 512, 512)
-_IMAGE_WITHOUT_CLOUDS = np.full(shape=_IMAGE_SHAPE, fill_value=25, dtype=np.uint8)
+_IMAGE_WITHOUT_CLOUDS = np.array(
+    [
+        np.full(shape=(_IMAGE_SHAPE[1], _IMAGE_SHAPE[2]), fill_value=0.1*2**BIT_DEPTH),
+        np.full(shape=(_IMAGE_SHAPE[1], _IMAGE_SHAPE[2]), fill_value=0.1*2**BIT_DEPTH),
+        np.full(shape=(_IMAGE_SHAPE[1], _IMAGE_SHAPE[2]), fill_value=0.1*2**BIT_DEPTH),
+        np.full(shape=(_IMAGE_SHAPE[1], _IMAGE_SHAPE[2]), fill_value=0.00*2**BIT_DEPTH),
+    ]
+)
 _IMAGE_WITH_CLOUDS = np.array(
     [
-        np.full(shape=(_IMAGE_SHAPE[1], _IMAGE_SHAPE[2]), fill_value=250),
-        np.full(shape=(_IMAGE_SHAPE[1], _IMAGE_SHAPE[2]), fill_value=250),
-        np.full(shape=(_IMAGE_SHAPE[1], _IMAGE_SHAPE[2]), fill_value=250),
-        np.full(shape=(_IMAGE_SHAPE[1], _IMAGE_SHAPE[2]), fill_value=128),
-    ],
-    dtype=np.uint8,
+        np.full(shape=(_IMAGE_SHAPE[1], _IMAGE_SHAPE[2]), fill_value=0.5*2**BIT_DEPTH),
+        np.full(shape=(_IMAGE_SHAPE[1], _IMAGE_SHAPE[2]), fill_value=0.5*2**BIT_DEPTH),
+        np.full(shape=(_IMAGE_SHAPE[1], _IMAGE_SHAPE[2]), fill_value=0.5*2**BIT_DEPTH),
+        np.full(shape=(_IMAGE_SHAPE[1], _IMAGE_SHAPE[2]), fill_value=0.7*2**BIT_DEPTH),
+    ]
 )
-_RANDOM_IMAGE = np.random.uniform(low=25, high=250, size=_IMAGE_SHAPE).astype(np.uint8)
+_RANDOM_IMAGE = np.random.uniform(low=0.1*2**BIT_DEPTH, high=0.99*2**BIT_DEPTH, size=_IMAGE_SHAPE).astype(np.uint16)
 _IMAGE_WITHOUT_CLOUDS_EXPECTED_OUTPUT = np.full(
     shape=(_IMAGE_SHAPE[1], _IMAGE_SHAPE[2]), fill_value=False
 )
