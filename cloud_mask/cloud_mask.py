@@ -1,10 +1,15 @@
 import cv2
+import logging
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
 from typing import Any, cast, Tuple
-import warnings
 
+EPSILON = 1e-6 # Small constant to avoid division by zero in NDSI calculation
+BIT_DEPTH = 12 # Assumed bit depth of input imagery
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 class CloudMask:
     """
@@ -17,7 +22,7 @@ class CloudMask:
         downsample_factor: float by which to scale the image on each axis. e.g. 0.5
             applied to a 1024x1024 image results in a 512x512 image for a 4x reduction
             in pixels.
-        ndsi_threshold: Any pixel with an nsdi value above this threshold will be
+        ndsi_threshold: Any pixel with an nsdi value below this threshold will be
             masked out.
         brightness_threshold: Any pixel with a brightness value above this threshold
             will be masked out.
@@ -44,11 +49,13 @@ class CloudMask:
         self.thermal_threshold = thermal_threshold
 
         if bands is not None:
+            logger.info("Initialising CloudMask with provided bands array.")
             self._band_red = bands[0]
             self._band_green = bands[1]
             self._band_blue = bands[2]
             self._band_nir = bands[3]
         elif tif_path is not None:
+            logger.info(f"Initialising CloudMask with image file: '{tif_path}'")
             (
                 self._band_red,
                 self._band_green,
@@ -66,10 +73,10 @@ class CloudMask:
         NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8]
     ]:
         """
-        Load image bands from BGR image file.
+        Load image bands from .tif image file.
 
         Args:
-            file: The path to a .tif image file in BGR format.
+            file: The path to a .tif image file (3 or 4 channel).
             downsample_factor: A float by which to scale the image on each axis. e.g.
                 0.5 applied to a 1024x1024 image results in a 512x512 image for a 4x
                 reduction in pixels.
@@ -81,32 +88,50 @@ class CloudMask:
             FileNotFoundError: If file cannot be read, e.g. the path does not exist or
                 the file is of an invalid type.
         """
-
-        image_bgr: NDArray[np.uint8] = cast(NDArray[np.uint8], cv2.imread(file))
-        print(NDArray[np.uint8])
-        if image_bgr is None:
+        try:
+            full_res_image: NDArray[np.uint8] = cast(NDArray[np.uint8], cv2.imread(file, cv2.IMREAD_UNCHANGED))
+            logger.info(f"Loaded image '{file}' of shape: {full_res_image.shape}")
+        except Exception as e:
+            # TODO: More specific exception handling
             raise FileNotFoundError(
                 f"Could not load file '{file}'. Check file exists and is of '.tif' format."
+            ) from e
+        
+        # Handle downsampling
+        if downsample_factor == 1:
+            logger.info("Downsample factor is 1, using full resolution image.")
+            image_resized = full_res_image
+        elif downsample_factor > 0:
+            # Determine new image size
+            new_size: Tuple[int, int] = (
+                int(full_res_image.shape[0] * downsample_factor),
+                int(full_res_image.shape[1] * downsample_factor),
             )
-
-        # Compressing file for speed
-        new_size: Tuple[int, int] = (
-            int(image_bgr.shape[0] * downsample_factor),
-            int(image_bgr.shape[1] * downsample_factor),
-        )
-
-        image_resized: NDArray[np.uint8] = cast(
-            NDArray[np.uint8],
-            cv2.resize(image_bgr, new_size, interpolation=cv2.INTER_AREA),
-        )
+            logger.info(f"Downsample factor is {downsample_factor}, resizing image from {full_res_image.shape[:2]} to {new_size}.")
+            image_resized: NDArray[np.uint8] = cast(
+                NDArray[np.uint8],
+                cv2.resize(full_res_image, new_size, interpolation=cv2.INTER_AREA),
+            )
+        else:
+            raise ValueError("Downsample_factor must be > 0.")
 
         band_red: NDArray[np.uint8] = image_resized[:, :, 2]
         band_green: NDArray[np.uint8] = image_resized[:, :, 1]
         band_blue: NDArray[np.uint8] = image_resized[:, :, 0]
-        band_nir: NDArray[np.uint8] = np.zeros_like(band_red)
-        warnings.warn(
-            "Importing NIR channel from .tif not implemented. Setting band to 0s. This could cause unexpected masking results."
-        )
+
+        # Special handling for images without NIR band
+        if full_res_image.shape[2] == 3:
+            band_nir: NDArray[np.uint8] = np.zeros_like(band_red)
+            logger.warn(
+                "No NIR band available in '{file}'. Setting NIR band to 0s. This could cause unexpected masking results."
+            )
+        elif full_res_image.shape[2] == 4:
+            # NIR band is present, load as normal
+            band_nir = image_resized[:, :, 3]
+        else:
+            raise ValueError(
+                f"Unexpected number of bands ({full_res_image.shape[2]}) in '{file}'."
+            )
 
         return band_red, band_green, band_blue, band_nir
 
@@ -121,12 +146,12 @@ class CloudMask:
             An MxN float array with each pixel representing the computed
             NDSI.
         """
-
-        return cast(
-            NDArray[np.floating[Any]],
-            (self._band_green.astype(float) - self._band_nir.astype(float))
-            / (self._band_green.astype(float) + self._band_nir.astype(float)),
-        )
+        logger.info("Computing NDSI.")
+        green = self._band_green.astype(float)
+        nir = self._band_nir.astype(float)
+        denominator = green + nir
+        denominator[denominator == 0] = EPSILON  # Avoid division by zero
+        return cast(NDArray[np.floating[Any]], (green - nir) / denominator)
 
     def _compute_brightness(self) -> NDArray[np.floating[Any]]:
         """Compute brightnesses array.
@@ -135,17 +160,19 @@ class CloudMask:
             An MxN float array with each pixel representing the average
             brightness across all 4 channels.
         """
-
+        logger.info("Computing brightness.")
         return cast(
             NDArray[np.floating[Any]],
             (
-                self._band_red.astype(float)
-                + self._band_green.astype(float)
-                + self._band_blue.astype(float)
-                + self._band_nir.astype(float)
-            )
-            / 4
-            / 256,
+                (
+                    self._band_red
+                    + self._band_green
+                    + self._band_blue
+                    + self._band_nir
+                )
+                / 4
+            ).astype(float)
+            / 2**BIT_DEPTH,  # Normalize based on bit depth (e.g., 12-bit imagery)
         )
 
     def create_cloud_mask(self) -> NDArray[np.bool_]:
@@ -159,11 +186,16 @@ class CloudMask:
 
         ndsi: NDArray[np.floating[Any]] = self._compute_ndsi()
         brightness: NDArray[np.floating[Any]] = self._compute_brightness()
+        thermal: NDArray[np.floating[Any]] = self._band_nir.astype(float) / 2**BIT_DEPTH
+        logger.info("Computing NDSI and brightness statistics for debugging.")
+        logger.info("NDSI stats (threshold=%s): min=%s, max=%s, mean=%s", self.ndsi_threshold, ndsi.min(), ndsi.max(), ndsi.mean())
+        logger.info("Brightness stats (threshold=%s): min=%s, max=%s, mean=%s", self.brightness_threshold, brightness.min(), brightness.max(), brightness.mean())
+        logger.info("Thermal band stats (threshold=%s): min=%s, max=%s, mean=%s", self.thermal_threshold, thermal.min(), thermal.max(), thermal.mean())
         return cast(
             NDArray[np.bool_],
-            (ndsi >= self.ndsi_threshold)
+            (ndsi <= self.ndsi_threshold)
             & (brightness >= self.brightness_threshold)
-            & (self._band_nir >= self.thermal_threshold),
+            & (thermal >= self.thermal_threshold),
         )
 
     def apply_cloud_mask(
@@ -180,23 +212,20 @@ class CloudMask:
             The masked image, with clouded areas (as specified by the cloud_mask
             arg) set to NaN.
         """
-
+        logger.info("Applying cloud mask to image.")
         bands = [self._band_red, self._band_green, self._band_blue, self._band_nir]
 
         masked_image = np.array(
             np.dstack(bands), dtype=float
         )  # Shape: (rows, columns, bands). Convert to float to allow NaN values.
-        masked_image[cloud_mask, :] = (
-            np.nan
-        )  # Set pixels where cloud_mask is False to NaN
+        masked_image[cloud_mask, :] = np.nan # Set pixels where cloud_mask is False to NaN
         return masked_image
 
     @staticmethod
     def visualise_image(image: NDArray[np.floating[Any]]) -> None:
-        plt.figure(figsize=(10, 10))
-        plt.imshow(
-            image.astype(np.uint8)[:, :, :3]
-        )  # Only visually render RGB channels
+        plt.figure(figsize=(10, 10))        
+        dynamic_range = [250, 600] # Could calculate these dynamically with np.nanquantile rather than hardcoding
+        plt.imshow((image[:, :, :3].clip(dynamic_range[0], dynamic_range[1]).astype(float)-dynamic_range[0])/(dynamic_range[1]-dynamic_range[0]))  # Only visually render RGB channels
         plt.show()
 
     @staticmethod
@@ -221,17 +250,17 @@ class CloudMask:
 # Loading image bands and creating cloud mask, then visualizing results
 
 if __name__ == "__main__":
-    file: str = "../marching_squares/Aberdeenshire.tif"
+    file: str = "../Dundee.tif"
 
-    # Aberdenshire.tif does not have a NIR channel. This is automatically initialised to 0, so thresholds
-    # need adjusted from sensible values to make test work.
+    # These values for thresholds are extremely rough estimates. Thermal is essentially
+    # ignored, NDSI seems to have minimal influence, brightness is the main controller.
     cloud_masker = CloudMask(
-        tif_path=file, downsample_factor=0.1, ndsi_threshold=1.0, thermal_threshold=0.0
+        tif_path=file, downsample_factor=0.1, ndsi_threshold=0.2, thermal_threshold=0.0, brightness_threshold=0.12
     )
 
     cloud_mask: NDArray[np.bool_] = cloud_masker.create_cloud_mask()
     image: NDArray[np.floating[Any]] = cloud_masker.apply_cloud_mask(
         cloud_mask=cloud_mask
     )
-    print(f"Cloud Cover: {CloudMask.cloud_cover_fraction(cloud_mask)*100:.3f}%")
+    logger.info(f"Cloud Cover: {CloudMask.cloud_cover_fraction(cloud_mask)*100:.3f}%")
     CloudMask.visualise_image(image)
