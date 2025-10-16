@@ -38,9 +38,9 @@ class CloudMask:
         bands: NDArray[np.uint8] | None = None,
         tif_path: str | None = None,
         downsample_factor: float = 0.1,
-        ndsi_threshold: float = 0.3,
-        brightness_threshold: float = 0.5,
-        thermal_threshold: float = 0.5,  # example threshold
+        ndsi_threshold: float = 0.2,
+        brightness_threshold: float = 0.12,
+        thermal_threshold: float = 0.0,  # example threshold
     ) -> None:
 
         self.downsample_factor = downsample_factor
@@ -191,6 +191,7 @@ class CloudMask:
         logger.info("NDSI stats (threshold=%s): min=%s, max=%s, mean=%s", self.ndsi_threshold, ndsi.min(), ndsi.max(), ndsi.mean())
         logger.info("Brightness stats (threshold=%s): min=%s, max=%s, mean=%s", self.brightness_threshold, brightness.min(), brightness.max(), brightness.mean())
         logger.info("Thermal band stats (threshold=%s): min=%s, max=%s, mean=%s", self.thermal_threshold, thermal.min(), thermal.max(), thermal.mean())
+        
         return cast(
             NDArray[np.bool_],
             (ndsi <= self.ndsi_threshold)
