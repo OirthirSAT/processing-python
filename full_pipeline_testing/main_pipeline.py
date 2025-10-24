@@ -5,17 +5,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage.transform import resize
 
-from modified_cloud_mask import CloudMask
+from cloud_mask.cloud_mask import CloudMask
 
 #NEW marching squares and segmentation algorithm
-from modified_coastline_extraction import CoastlineExtractor
-from marching_squares_refined import MarchingSquaresRefiner
+from full_pipeline_testing.modified_coastline_extraction import CoastlineExtractor
+from full_pipeline_testing.marching_squares_refined import MarchingSquaresRefiner
 
 #ORIGINAL marching squares and segmentation algorithm
-from modified_marching_squares_altseg import CoastlineExtractor_MS_altseg
+from full_pipeline_testing.modified_marching_squares_altseg import CoastlineExtractor_MS_altseg
 
 #Initiliasing file paths
-image_path = "../../test-images/Dundee.tif"#"raw_landsat_images/Dundee_LC09_204021_20240322.tiff"
+image_path = "../test-images/Aberdyfi.tif"#"raw_landsat_images/Dundee_LC09_204021_20240322.tiff"
 output_dir = "output"
 initialisation_dir = os.path.join(output_dir, "initialisation")
 cloudmask_dir = os.path.join(output_dir, "cloud_mask")
@@ -42,7 +42,7 @@ def load_image(image_path):
         image = image[np.newaxis, :, :]
     
     elif image.shape[-1] <= 4:
-        image = np.moveaxis(image, -1, 0) #SHOULD WE???
+        image = np.moveaxis(image, -1, 0) 
     
     print(f"[INFO] Loaded image: {image.shape}")
     return image
@@ -52,7 +52,7 @@ def show_band_stats(image):
     
     for i in range(image.shape[0]):
         
-        band = image[i]
+        band = image[i , : , :]
         print(f"[STATS] Band {i}: min={band.min()}, max={band.max()}, mean={band.mean():.2f}")
         
         norm = normalise_band(band)
@@ -65,7 +65,7 @@ def save_rgb_preview(image):
         raise ValueError("Expected at least 4 bands for RGB+NIR")
     
     #Assuming the bands are in order [NIR,BLUE,GREEN,RED]
-    R, G, B = image[3], image[2], image[1]
+    R, G, B = image[0], image[1], image[2]
     rgb = np.stack([R, G, B], axis=-1)
     
     rgb_norm = normalise_band(rgb)
@@ -83,9 +83,9 @@ def run_cloud_masking(image, image_path):
     masker = CloudMask(
         bands=image,
         downsample_factor=0.1,
-        ndsi_threshold=0.3,
-        brightness_threshold=0.5,
-        thermal_threshold=0.5,
+        ndsi_threshold=0.5  ,
+        brightness_threshold=0.3,
+        thermal_threshold=0.0,
     )
     
     #Create the mask
@@ -109,6 +109,8 @@ def run_cloud_masking(image, image_path):
     tifffile.imwrite(masked_path, masked.astype(np.float32), dtype=np.float32)
     print(f"[INFO] Saved masked image to {masked_path}")
 
+    CloudMask.visualise_image(masked)
+
     return mask_full, masked
 
 
@@ -130,9 +132,10 @@ def pipeline(image_path, use_altseg=False):
     
     if use_altseg:
         # Using original marching squares class
+        print("[INFO] Using original coastline extraction")
         extractor = CoastlineExtractor_MS_altseg()
         # Runs the extraction code.
-        results = extractor.run(masked_image)
+        results = extractor.run(masked_image, 0.1)
         
         # Note: results dictionary keys should match what the altseg class returns
         # If necessary, modify the keys below to match class
@@ -149,7 +152,7 @@ def pipeline(image_path, use_altseg=False):
         vector_boundary = results["vector_boundary"]
 
     # Save the images: binary cloud mask and the image with outlined coastline
-    plt.imsave(f"{data_output_dir}/ndwi.png", results.get("ndwi_image", binary_mask), cmap="gray")
+    #plt.imsave(f"{data_output_dir}/ndwi.png", results.get("ndwi_image", binary_mask), cmap="gray")
     plt.imsave(f"{data_output_dir}/binary_mask.png", binary_mask, cmap="gray")
     plt.imsave(f"{data_output_dir}/overlay.png", overlay)
     
@@ -157,19 +160,19 @@ def pipeline(image_path, use_altseg=False):
 
     metadata["coastline_contours"] = len(vector_boundary)
 
-    print("[INFO] Refining coastline with marching squares...")
-    refiner = MarchingSquaresRefiner()
-    refined_results = refiner.run(binary_mask)
+    # print("[INFO] Refining coastline with marching squares...")
+    # refiner = MarchingSquaresRefiner()
+    # refined_results = refiner.run(binary_mask)
 
-    # Save refined vectors (as JSON for now)
-    refined_path = os.path.join(data_output_dir, "refined_vectors.json")
+    # # Save refined vectors (as JSON for now)
+    # refined_path = os.path.join(data_output_dir, "refined_vectors.json")
     
-    with open(refined_path, "w") as f:
-        json.dump([list(map(list, vec)) for vec in refined_results["vectors"]], f, indent=2)
+    # with open(refined_path, "w") as f:
+    #     json.dump([list(map(list, vec)) for vec in refined_results["vectors"]], f, indent=2)
     
-    print(f"[INFO] Saved refined coastline vectors to {refined_path}")
+    # print(f"[INFO] Saved refined coastline vectors to {refined_path}")
 
-    metadata["refined_vectors"] = len(refined_results["vectors"])
+    # metadata["refined_vectors"] = len(refined_results["vectors"])
 
     json_path = os.path.join(data_output_dir, "metadata.json")
     
