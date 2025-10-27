@@ -94,11 +94,12 @@ class CoastlineExtractor_MS_altseg:
         print(f"threshold value: {threshold_value}")
         print(f"max value of hue array: {hue.max()}")
         print(f"occurences of nan {np.isnan(threshold_full).sum()}")
+        
         # Create a masked array to hide NaNs
         masked_image = np.ma.masked_where(np.isnan(threshold_full), threshold_full)
 
         # Display using a custom colormap
-        cmap = plt.cm.gray  # or use 'viridis', 'plasma', etc.
+        cmap = plt.cm.gray  
         cmap.set_bad(color='red')  # NaNs will show as red
 
         plt.imshow(masked_image, cmap=cmap)
@@ -106,8 +107,12 @@ class CoastlineExtractor_MS_altseg:
         plt.title("Thresholded Image with NaNs")
         plt.show()
 
+        #set the nan values to 16 such that they will fail any edge criteria. 
+        #This ensures regions surrounding masked pixels are vector free.
+
+        segmented_image = np.nan_to_num(threshold_full, nan = 16)
         
-        return threshold_value, threshold_full, threshold_valid
+        return threshold_value, segmented_image, threshold_valid
     
     @staticmethod
     def _point_array(image: _NUMERIC_ARRAY) -> tuple[NDArray[bool], int, int]:
@@ -235,7 +240,9 @@ class CoastlineExtractor_MS_altseg:
             start = (x + 1, y)
             end = (x, y + 1)
             vector.append((start, end))
-
+        else:
+            return None
+        
         return vector
 
     @staticmethod
@@ -356,10 +363,9 @@ class CoastlineExtractor_MS_altseg:
     def run(masked_image: _NUMERIC_ARRAY, downsample_factor: float = 1) -> dict[str, Any]:
         hsv_image, valid_mask = CoastlineExtractor_MS_altseg._preprocess_image(masked_image, downsample_factor)
         _, threshold_image, threshold_value = CoastlineExtractor_MS_altseg._otsu_segmentation(hsv_image, valid_mask)
-        state_array, x_len, y_len = CoastlineExtractor_MS_altseg._point_array(threshold_value)
+        state_array, x_len, y_len = CoastlineExtractor_MS_altseg._point_array(threshold_image)
         vectors = CoastlineExtractor_MS_altseg._list_vectors(state_array, x_len, y_len)
         shapes = CoastlineExtractor_MS_altseg._vector_shapes(vectors)
-
         overlay = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2RGB)
         for shape in shapes[:1]:
             pts = np.array(shape, np.int32).reshape((-1, 1, 2))
