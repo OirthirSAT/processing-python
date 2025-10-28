@@ -36,26 +36,36 @@ class CoastlineExtractor_MS_altseg:
             masked_image = cv2.cvtColor(masked_image.astype(np.uint8), cv2.COLOR_GRAY2BGR)
         elif masked_image.shape[0] in (3, 4):
             masked_image = np.moveaxis(masked_image, 0, -1)
+        if masked_image.shape[2] == 4:
+            masked_image = masked_image[:,:,:3]
+        print("Pixels where some but not all channels are NaN:", np.sum(np.isnan(masked_image).sum(axis=-1) > 0))
+  
+        valid_mask_orig = np.isfinite(masked_image).all(axis=-1)
 
         # If necessary for performance speed, compress the file
         new_size: _POINT = (
             int(masked_image.shape[1] * downsample_factor),
             int(masked_image.shape[0] * downsample_factor),
         )
+
         image_resized: _NUMERIC_ARRAY = cv2.resize(
-            masked_image, new_size, interpolation=cv2.INTER_AREA
+            masked_image, new_size, interpolation=cv2.INTER_NEAREST
         )
+        mask_resized = cv2.resize(valid_mask_orig.astype(np.uint8), new_size, interpolation = cv2.INTER_NEAREST).astype(bool)
+
         print(f"Number of nan values after downsampling {np.isnan(image_resized).sum()}")
-        valid_mask = ~np.isnan(image_resized).any(axis = -1)
-        image_filled = np.nan_to_num(image_resized, nan = 0.0)
-        image_resized_uint8= image_filled.astype(np.uint8)
+        #valid_mask = ~np.isnan(image_resized).any(axis = -1)
+        #image_filled = np.nan_to_num(image_resized, nan = 0.0)
+
+        #image_resized = np.nan_to_num(image_resized, nan=0.0)
+
+        #image_resized_uint8= image_resized.astype(np.uint8)
 
         # For the chosen segmentation method it has been decided to segment
         # the image using the hue channel of a converted hsv image to
         # distinguish between land and sea.
-        print("dtype before conversion:", image_resized_uint8.dtype)
 
-        return cv2.cvtColor(image_resized_uint8, cv2.COLOR_BGR2HSV) , valid_mask
+        return image_resized , mask_resized
 
     @staticmethod
     def _otsu_segmentation(image: _NUMERIC_ARRAY, valid_mask: _NUMERIC_ARRAY) -> tuple[float, _NUMERIC_ARRAY]:
@@ -76,8 +86,9 @@ class CoastlineExtractor_MS_altseg:
             A tuple containing [0] the threshold value between land and sea and [1] a
             binary valued segmented image where 0 represents sea and 1 land.
         """
-
-        hue: _NUMERIC_ARRAY = image[:, :, 0]
+        image = np.nan_to_num(image, nan=0.0).astype(np.uint8)
+        hsv = cv2.cvtColor(image[:,:,:3], cv2.COLOR_BGR2HSV)
+        hue: _NUMERIC_ARRAY = hsv[:, :, 0]
         valid_hue = hue[valid_mask]
         
         threshold_value, threshold_valid = cv2.threshold(
@@ -361,19 +372,32 @@ class CoastlineExtractor_MS_altseg:
 
     @staticmethod
     def run(masked_image: _NUMERIC_ARRAY, downsample_factor: float = 1) -> dict[str, Any]:
-        hsv_image, valid_mask = CoastlineExtractor_MS_altseg._preprocess_image(masked_image, downsample_factor)
-        _, threshold_image, threshold_value = CoastlineExtractor_MS_altseg._otsu_segmentation(hsv_image, valid_mask)
+        preprocessed_image, valid_mask = CoastlineExtractor_MS_altseg._preprocess_image(masked_image, downsample_factor)
+        _, threshold_image, threshold_value = CoastlineExtractor_MS_altseg._otsu_segmentation(preprocessed_image, valid_mask)
         state_array, x_len, y_len = CoastlineExtractor_MS_altseg._point_array(threshold_image)
         vectors = CoastlineExtractor_MS_altseg._list_vectors(state_array, x_len, y_len)
         shapes = CoastlineExtractor_MS_altseg._vector_shapes(vectors)
-        overlay = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2RGB)
-        for shape in shapes[:1]:
-            pts = np.array(shape, np.int32).reshape((-1, 1, 2))
-            cv2.polylines(overlay, [pts], isClosed=True, color=(255, 0, 0), thickness=1)
+        
+        overlay = preprocessed_image
+        # for shape in shapes[:1]:
+        #     pts = np.array(shape, np.uint8).reshape((-1, 1, 2))
+        #     cv2.polylines(overlay, [pts], isClosed=True, color=(255, 255, 255), thickness=10)
+        
+        # cv2.line(overlay, (10, 10), (300, 300), (255, 255, 255), 2)
 
+        overlay = overlay.astype(np.float32)
+
+        print(f"The shape of overlay[2] is {overlay.shape[2]}")
+        
+        #mask3c = np.stack([valid_mask, valid_mask, valid_mask], axis = -1)
+
+        overlay[~valid_mask, :] = 0.0
+        
+        overlay_norm = np.clip(overlay, 0.0, 255.0) / 255.0
+    
         return {
             "shapes": shapes,
             "vectors": vectors,
             "threshold_image": threshold_image,
-            "overlay_image": overlay
+            "overlay_image": overlay_norm
         }
