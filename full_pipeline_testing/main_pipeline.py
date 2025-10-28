@@ -68,7 +68,8 @@ def save_rgb_preview(image):
     R, G, B = image[0], image[1], image[2]
     rgb = np.stack([R, G, B], axis=-1)
     
-    rgb_norm = normalise_band(rgb)
+    dynamic_range = [250,600]
+    rgb_norm = (rgb.clip(dynamic_range[0], dynamic_range[1]).astype(float)-dynamic_range[0])/(dynamic_range[1]-dynamic_range[0])
     
     plt.imsave(f"{initialisation_dir}/rgb_preview.png", rgb_norm)
     
