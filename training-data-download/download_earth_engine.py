@@ -6,10 +6,13 @@ import ee
 
 ## Dataset used: https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC09_C02_T1
 
-PROJECT_NAME = "scriptminer-oirthirsat"
+PROJECT_NAME = "scriptminer-oirthirsat" # Modify to name of Google Earth Engine project to use to download files
+GOOGLE_DRIVE_EXPORT_PATH = "GEE_Exports"
 DATASET = "LANDSAT/LC09/C02/T1"
 BANDS = ["B5", "B4", "B3", "B2"]
-TILE_WIDTH = 1024 # Pixels wide a tile should be
+TILE_WIDTH = 4096 # Pixels wide a tile should be
+INPUT_BIT_DEPTH = 16
+OUTPUT_BIT_DEPTH = 12
 RESOLUTION = 30 # Metres per pixel
 
 def import_sites():
@@ -42,15 +45,31 @@ def clarity_check(img, geometry):
         .And(qa.bitwiseAnd(clearBitMask).neq(0))
 
     total_pixel_count = img.reduceRegion(reducer=ee.Reducer.count(), geometry=geometry,
-                                         maxPixels=1e13, scale=30)
+                                         maxPixels=1e13, scale=30).values(['QA_PIXEL']).get(0)
     clear_pixel_count = img.updateMask(mask).reduceRegion(reducer=ee.Reducer.count(), geometry=geometry,
-                                                          maxPixels=1e13, scale=30)
+                                                          maxPixels=1e13, scale=30).values(['QA_PIXEL']).get(0)
 
-    clarity_score = ee.Number(clear_pixel_count.values(['QA_PIXEL']).get(0)) \
-        .divide(total_pixel_count.values(['QA_PIXEL']).get(0)).multiply(ee.Number(100))
+    valid_pixel_count = img.reduceRegion(
+        reducer=ee.Reducer.count(),
+        geometry=geometry,
+        maxPixels=1e13,
+        scale=30
+    ).values(['QA_PIXEL']).get(0)
 
+    all_pixel_count = img.reduceRegion(
+        reducer=ee.Reducer.count(),
+        geometry=geometry,
+        maxPixels=1e13,
+        scale=30
+    ).values(['QA_PIXEL']).get(0)
+
+    # Get count of all pixels including those outwith mask (using different .values)
+    clarity_score = ee.Number(clear_pixel_count).divide(total_pixel_count).multiply(ee.Number(100))
+    null_pixel_ratio = ee.Number(valid_pixel_count).divide(ee.Number(all_pixel_count))
+    # Check ratio between total_pixel_count and including_null_pixel_count to see if there are null pixels
+    clarity_score = ee.Algorithms.If(null_pixel_ratio.lt(0.99), ee.Number(0), clarity_score) # This line is probably broken
+    
     return img.set({'clarity_score': clarity_score})
-
 
 # @retry(tries=10, delay=1, backoff=2)
 def get_result(index, site):
@@ -60,39 +79,41 @@ def get_result(index, site):
     img_col = ee.ImageCollection(DATASET)
     selectors = BANDS
 
-    bbox = ee.Geometry.Point(site['point']).buffer(0.5 * TILE_WIDTH * RESOLUTION).bounds() # Select a bounding box
-    imgs_filter_list = img_col.filterDate('2024-01-01', '2025-01-01') \
+    bbox = ee.Geometry.Point(site['point']) #.buffer(0.5 * TILE_WIDTH * RESOLUTION).bounds() # Select a bounding box
+    print("BBOX", bbox.getInfo())
+
+    imgs_filter_list = img_col.filterDate('2024-01-01', '2025-09-08') \
         .filterBounds(bbox) \
         .map(lambda img: clarity_check(img, bbox)) \
         .filter(ee.Filter.gte('clarity_score', 80)) \
-        .reduceColumns(ee.Reducer.toList(), ['system:index']).get('list')
+        .sort('clarity_score', False)
+    
+    n_imgs = imgs_filter_list.size().getInfo()
+    if n_imgs == 0:
+        print(f"No images found for {site['subregion']} meeting clarity requirements.")
+        return None
+    print(f"Found {n_imgs} image(s) meeting validity requirements.")
+    # Select first image, downscale from 16 bit to 12 bit
+    img = imgs_filter_list.first().select(selectors).multiply((2**(OUTPUT_BIT_DEPTH-INPUT_BIT_DEPTH))).toUint16()
+    
+    img = img.clip(bbox.coveringGrid(img.projection(), TILE_WIDTH * RESOLUTION).geometry())
 
-    # os.mkdir(os.path.join("downloads",site['subregion']))
+    img_id = site["subregion"]
+    print(f"Exporting {img_id} to Google Drive")
+    print(img.getInfo())
 
-    for imgID in imgs_filter_list.getInfo():
-        print(f"Fetching image {imgID}")
-        img = ee.Image('LANDSAT/LC09/C02/T1/' + imgID).select(selectors).multiply(0.0000275).add(-0.2)
-
-        url = img.getDownloadURL({
-            "bands": selectors,
-            "region": bbox,
-            "scale": 30,
-            "filePerBand": False,
-            "format": "GEO_TIFF"
-        })
-
-        # handle downloading the actual pixels
-        r = requests.get(url, stream=True)
-        if r.status_code != 200:
-            r.raise_for_status()
-        filename = f"{site['subregion']}_{imgID}.tiff"
-        
-        with open(os.path.join('downloads', filename), 'wb') as out_file:
-            shutil.copyfileobj(r.raw, out_file)
-        print(f'[File {index}]: Download complete.')
-        
-        print("BREAK; taking only first file")
-        break
+    task = ee.batch.Export.image.toDrive(
+        image=img,
+        description=img_id.replace("/","-"),
+        folder=GOOGLE_DRIVE_EXPORT_PATH,
+        fileNamePrefix=img_id.replace("/","-"),
+        # region=img.geometry(),
+        # dimensions=TILE_WIDTH,
+        scale=30,
+        fileFormat="GeoTIFF",
+        formatOptions={"cloudOptimized": False, "noData": 0},
+    )
+    return task
 
 if __name__ == "__main__":
     print("Importing locations...")
@@ -101,15 +122,20 @@ if __name__ == "__main__":
     print("Authenticating...")
     ee.Authenticate()
     print("Done Authenticating.")
-
-    print("Creating downloads folder.")
-    try:
-        os.mkdir('downloads')
-    except FileExistsError:
-        print("Folder already exists, skipping.")
-    
+    print(f"Using Earth Engine project '{PROJECT_NAME}' to download from collection '{DATASET}'. Will save to '{GOOGLE_DRIVE_EXPORT_PATH}' on Google Drive.")
     print("Beginning downloads.")
     i = 0
+    ids = []
     while i < len(sites):
-        get_result(i, sites[i])
+        task = get_result(i, sites[i])
+        task.start()
+        print(task.id)
+        ids.append(task.id)
         i += 1
+    print("All downloads started.")
+    print("Task IDs:", ids)
+
+# Get task from id
+for id in ids:
+    task = ee.batch.Task(id, 'EXPORT_IMAGE', "READY")
+    print(task.status())
