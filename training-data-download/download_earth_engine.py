@@ -6,7 +6,8 @@ import ee
 
 ## Dataset used: https://developers.google.com/earth-engine/datasets/catalog/LANDSAT_LC09_C02_T1
 
-PROJECT_NAME = "scriptminer-oirthirsat"
+PROJECT_NAME = "scriptminer-oirthirsat" # Modify to name of Google Earth Engine project to use to download files
+GOOGLE_DRIVE_EXPORT_PATH = "GEE_Exports"
 DATASET = "LANDSAT/LC09/C02/T1"
 BANDS = ["B5", "B4", "B3", "B2"]
 TILE_WIDTH = 4096 # Pixels wide a tile should be
@@ -104,7 +105,7 @@ def get_result(index, site):
     task = ee.batch.Export.image.toDrive(
         image=img,
         description=img_id.replace("/","-"),
-        folder="GEE_Exports_3",
+        folder=GOOGLE_DRIVE_EXPORT_PATH,
         fileNamePrefix=img_id.replace("/","-"),
         # region=img.geometry(),
         # dimensions=TILE_WIDTH,
@@ -121,13 +122,7 @@ if __name__ == "__main__":
     print("Authenticating...")
     ee.Authenticate()
     print("Done Authenticating.")
-
-    print("Creating downloads folder.")
-    try:
-        os.mkdir('downloads')
-    except FileExistsError:
-        print("Folder already exists, skipping.")
-    
+    print(f"Using Earth Engine project '{PROJECT_NAME}' to download from collection '{DATASET}'. Will save to '{GOOGLE_DRIVE_EXPORT_PATH}' on Google Drive.")
     print("Beginning downloads.")
     i = 0
     ids = []
