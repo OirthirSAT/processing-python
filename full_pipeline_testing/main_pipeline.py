@@ -140,7 +140,8 @@ def pipeline(image_path, use_altseg=False):
         
         # Note: results dictionary keys should match what the altseg class returns
         # If necessary, modify the keys below to match class
-        
+        preprocessed_image = results["preprocessed_image"]
+        CloudMask.visualise_image(preprocessed_image)
         binary_mask = results["threshold_image"] #black and white segmented image
         overlay = results["overlay_image"] #image with coastline outlined 
         vector_boundary = results["shapes"] #the coastline segment vectors, shapes[0] should be the coastline vector outlined.
