@@ -14,175 +14,142 @@ class CoastlineExtractor_MS_altseg:
     def __init__(self, threshold=0.5):
         self.threshold = threshold
 
-    def plot_hue_histogram(valid_hue: np.ndarray, range = (0,255), bins: int = 200 ):
+    def plot_hue_histogram(ndwi: np.ndarray, value_range: tuple[int,int] = (0,255), bins: int = 200 ) -> None:
         """
         Plot the histogram of hue values that Otsu uses to determine the threshold.
         
-        valid_hue: 1D array of hue values from HSV image (uint8 range 0–179)
+        valid_hue: 1D array of 
         """
         # Ensure valid format
-        valid_hue = valid_hue.flatten()
+        values = ndwi.flatten()
 
         plt.figure(figsize=(10, 6))
-        plt.hist(valid_hue, bins=bins, range = range, edgecolor='black')
-        plt.title("Histogram of Hue Values Used for Otsu Thresholding")
-        plt.xlabel("Hue Value (0–179)")
+        plt.hist(values, bins=bins, range = value_range, edgecolor='black')
+        plt.title("Histogram of NDWI values for Otsu Thresholding")
+        plt.xlabel(f"NDWI Value ({value_range[0]}–{value_range[1]})")
         plt.ylabel("Pixel Count")
         plt.grid(alpha=0.3)
         plt.show()
 
     @staticmethod
-    def _preprocess_image(masked_image: _NUMERIC_ARRAY, downsample_factor: float) -> _NUMERIC_ARRAY:
+    def _preprocess_image(masked_image: _NUMERIC_ARRAY, downsample_factor: float) -> tuple[_NUMERIC_ARRAY,_NUMERIC_ARRAY]:
         """
-        Reads a tif file with bgr formatting, resizes the image if necessary and
-        then converts into a hsv file using the cv2 library.
+        Reads a tif file with bgr formatting, resizes the image and applies appropriate
+        masking to NaN values and drops border artifacts.
 
         Args:
-            masked_image: The cloud masked image
-            downsample_factor: float by which to scale the image on each axis. e.g. 0.5
+            masked_image: array
+                The cloud masked image
+            downsample_factor: float 
+                Scaling factor for the image on each axis. e.g. 0.5
                 applied to a 1024x1024 image results in a 512x512 image for a 4x
                 reduction in pixels.
 
         Returns:
-            A numeric array representing the image after being downscaled and converted
-            to hsv format.
+            resized_image : array
+                Downsampled image with NaNs preserved.
+            valid_mask : array (bool)
+                Mask marking valid pixels after resizing.
         """
-        print(f"Number of nan values before downsampling {np.isnan(masked_image).sum()}")
+        
+        print("[INFO] Preprocessing image for segmentation")
+        
+        #print(f"Number of nan values before downsampling {np.isnan(masked_image).sum()}")
 
         img = masked_image
+
+
+        # Convert image to (H,W,bands) format
         if img.ndim == 2:
             img = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_GRAY2BGR)
+
         elif img.ndim == 3 and img.shape[0] in (3, 4):
             img = np.moveaxis(img, 0, -1)
 
-        img = img.astype(float) #img[:,:,:3].astype(float)
 
+        img = img.astype(float)
+
+        # Mask where all channels are finite.
         valid_mask_orig = np.isfinite(img).all(axis=-1)
 
-        # If necessary for performance speed, compress the file
+        # If necessary for performance speed, compress the file.
         new_size: _POINT = (
             int(img.shape[1] * downsample_factor),
             int(img.shape[0] * downsample_factor),
         )
 
+        # Use nearest neighbour interpolation, to avoid interpolating NaNs.
         img_resized: _NUMERIC_ARRAY = cv2.resize(
             img, new_size, interpolation=cv2.INTER_NEAREST
         )
-        mask_resized = cv2.resize(
+        mask_resized: _NUMERIC_ARRAY = cv2.resize(
             valid_mask_orig.astype(np.uint8), new_size, interpolation = cv2.INTER_NEAREST
             ).astype(bool)
 
-        print(f"Number of nan values after downsampling {np.isnan(img_resized).sum()}")
+        #print(f"Number of NaN values after downsampling {np.isnan(img_resized).sum()}")
 
-        #to ensure that the border surrounding the geo-orientated image is excluded from further processing
+        # Remove border areas.
         border_mask = np.all(img_resized < 5, axis=-1)
         mask_resized[border_mask] = False
 
+        # Apply mask.
         img_resized[~mask_resized] = np.nan
-        #CloudMask.visualise_image(img_resized[:,:,:3])
+
+        #CloudMask.visualise_image(img_resized[:,:,:3]) - optional visualisation
         
         return img_resized , mask_resized
 
     @staticmethod
-    def _otsu_segmentation(image: _NUMERIC_ARRAY, valid_mask: _NUMERIC_ARRAY) -> tuple[float, _NUMERIC_ARRAY]:
+    def _otsu_segmentation_4channel(preprocessed_image: _NUMERIC_ARRAY, valid_mask: _NUMERIC_ARRAY) -> tuple[float, _NUMERIC_ARRAY]:
         """Use OTSU segmentation to classify land and sea.
 
         Uses the Otsu segmentation method to distinguish between land and sea to
-        extract the coastline vector. This will be later replaced by the UNET section
-        of the pipeline. The Otsu threshold works by creating a histogram of the hue
-        values in the hsv image. This will result in two large broad peaks in the
-        histogram corresponding to the hue values of land more oranges and greens,
-        whereas the sea will be distinctly blue. The threshold value is then the point
-        between these two peaks.
+        extract the coastline vector. The Otsu threshold works by creating a histogram of the NDWI
+        values calculated using the formula NDWI = (G-NIR)/(G+NIR). This was chosen as through iterative testing
+        it proved to be the most successful simple method to produce two large peaks with a noticable minimum
+        which identifies a key threshold value to distinguish land and sea.
 
         Args:
-            image: The image to be segmented in hsv format.
+            image: The image to be segmented.
+            valid_mask: Mask of all NaN values
 
         Returns:
-            A tuple containing [0] the threshold value between land and sea and [1] a
-            binary valued segmented image where 0 represents sea and 1 land.
+            ndwi_threshold: float
+                The threshold value used to segment the image
+            segmented_iamge: array
+                Binary mask (0 = sea, 1 = land), Nans replaced with 16.
+            threshold_valid: array
+                OpenCVs raw thresholding output.
+
         """
-        filled = image.copy().astype(np.uint8)
-        filled[~valid_mask] = [127, 127, 127]
 
-        #filled_uint8 = np.clip(filled, 0, 255)
-        hsv = cv2.cvtColor(filled, cv2.COLOR_BGR2HSV)
-        hue: _NUMERIC_ARRAY = hsv[:, :, 0]
-        valid_hue = hue[valid_mask].astype(np.uint8).reshape(-1,1)
+        print("[INFO] Performing Otsu segmentation")
         
-        #CoastlineExtractor_MS_altseg.plot_hue_histogram(valid_hue)
+        image = preprocessed_image.copy()
 
-        threshold_value, threshold_valid = cv2.threshold(
-            valid_hue, 
-            0, 
-            255, 
-            cv2.THRESH_BINARY + cv2.THRESH_OTSU,
-        )
 
-        print(f"Shape of threshold_valid matrix: {threshold_valid.shape}")
-        print(f"Shape of valid_hue matrix: {valid_hue.shape}")
-
-        threshold_full = np.full(hue.shape, np.nan, dtype = np.float32)
-        threshold_full[valid_mask] = (hue[valid_mask].astype(np.uint8)> threshold_value).astype(np.float32)
+        # Extract channels 
+        green = image[:,:,1].astype(float)
+        nir = image[:,:,3].astype(float)
         
-        print(f"Shape of threshold matrix: {threshold_full.shape}")
-        print(f"threshold value: {threshold_value}")
-        print(f"max value of hue array: {hue.max()}")
-        print(f"occurences of nan {np.isnan(threshold_full).sum()}")
-        
-        # Create a masked array to hide NaNs
-        masked_image = np.ma.masked_where(np.isnan(threshold_full), threshold_full)
 
-        # Display using a custom colormap
-        cmap = plt.cm.gray  
-        cmap.set_bad(color='red')  # NaNs will show as red
-
-        plt.imshow(masked_image, cmap=cmap)
-        plt.colorbar(label='Segmentation Value')
-        plt.title("Thresholded Image with NaNs")
-        plt.show()
-
-        #set the nan values to 16 such that they will fail any edge criteria. 
-        #This ensures regions surrounding masked pixels are vector free.
-
-        segmented_image = np.nan_to_num(threshold_full, nan = 16)
-       
-        return threshold_value, segmented_image, threshold_valid
-    
-    def _otsu_segmentation_4channel(image: _NUMERIC_ARRAY, valid_mask: _NUMERIC_ARRAY) -> tuple[float, _NUMERIC_ARRAY]:
-        """Use OTSU segmentation to classify land and sea.
-
-        Uses the Otsu segmentation method to distinguish between land and sea to
-        extract the coastline vector. This will be later replaced by the UNET section
-        of the pipeline. The Otsu threshold works by creating a histogram of the hue
-        values in the hsv image. This will result in two large broad peaks in the
-        histogram corresponding to the hue values of land more oranges and greens,
-        whereas the sea will be distinctly blue. The threshold value is then the point
-        between these two peaks.
-
-        Args:
-            image: The image to be segmented in hsv format.
-
-        Returns:
-            A tuple containing [0] the threshold value between land and sea and [1] a
-            binary valued segmented image where 0 represents sea and 1 land.
-        """
-        filled = image.copy()
-
-        G = filled[:,:,1].astype(float)
-        NIR = filled[:,:,3].astype(float)
-
-        den = G + NIR
+        # Safely perform NDWI calculation
+        denominator = green + nir
         eps = 1e-8
-        den_safe = np.where(np.abs(den) < eps, np.nan, den)
-        NDWI = (G-NIR)/den_safe
+        denominator_safe = np.where(np.abs(denominator) < eps, np.nan, denominator)
+        
+        ndwi = (green-nir)/denominator_safe
 
-        valid_NDWI = NDWI[valid_mask]
-        valid_NDWI = valid_NDWI[~np.isnan(valid_NDWI)]
+        valid_ndwi = ndwi[valid_mask]
+        valid_ndwi = valid_ndwi[~np.isnan(valid_ndwi)]
 
-        #CoastlineExtractor_MS_altseg.plot_hue_histogram(valid_NDWI,(-1,1))
 
-        scaled16 = ((valid_NDWI + 1.0) / 2.0 * 65535.0).clip(0,65535.0).astype(np.uint16)
+        #CoastlineExtractor_MS_altseg.plot_hue_histogram(valid_ndwi,(-1,1))
+
+
+        # Perform Otsu segmentation on uint16 scaled NDWI
+        scaled16 = ((valid_ndwi + 1.0) / 2.0 * 65535.0).clip(0,65535.0).astype(np.uint16)
+        
         #CoastlineExtractor_MS_altseg.plot_hue_histogram(scaled16, range = (0,65535))
 
         img_for_thresh = scaled16.reshape(-1,1)
@@ -194,18 +161,15 @@ class CoastlineExtractor_MS_altseg:
             cv2.THRESH_BINARY + cv2.THRESH_OTSU,
         )
 
+
+        # Convert back to original NDWI range (float) to apply thresholding
         ndwi_thresh = (threshold_value / 65535.0) * 2.0 - 1.0
+        print(f"[STATS] NDWI threshold value: {ndwi_thresh}")
 
-        print(f"Shape of threshold_valid matrix: {threshold_valid.shape}")
-
-        threshold_full = np.full(NDWI.shape, np.nan, dtype = np.float32)
-        nonan_mask = valid_mask & ~np.isnan(NDWI)
-        threshold_full[valid_mask] = (NDWI[nonan_mask]> ndwi_thresh).astype(np.float32)
+        threshold_full = np.full(ndwi.shape, np.nan, dtype = np.float32)
+        nonan_mask = valid_mask & ~np.isnan(ndwi)
+        threshold_full[valid_mask] = (ndwi[nonan_mask]> ndwi_thresh).astype(np.float32)
         
-        print(f"Shape of threshold matrix: {threshold_full.shape}")
-        print(f"threshold value: {ndwi_thresh}")
-
-        print(f"occurences of nan {np.isnan(threshold_full).sum()}")
         
         # Create a masked array to hide NaNs
         masked_image = np.ma.masked_where(np.isnan(threshold_full), threshold_full)
@@ -219,7 +183,7 @@ class CoastlineExtractor_MS_altseg:
         plt.title("Thresholded Image with NaNs")
         plt.show()
 
-        #set the nan values to 16 such that they will fail any edge criteria. 
+        #set the nan values to 16 such that they will fail any edge generation criteria in Marching Squares. 
         #This ensures regions surrounding masked pixels are vector free.
 
         segmented_image = np.nan_to_num(threshold_full, nan = 16)
@@ -473,81 +437,100 @@ class CoastlineExtractor_MS_altseg:
 
     @staticmethod
     def upscale_and_shift_cv(img):
+        """Used to shift the pixels of the original image to the scale used to generate the edges that will
+        form coastline vectors."""
+
         upscaled = cv2.resize(img, None, fx=2, fy=2, interpolation=cv2.INTER_NEAREST)
         shifted = np.pad(upscaled, ((1, 0), (1, 0), (0, 0)), mode='constant')
         return shifted
 
     @staticmethod
+    def _create_overlay(img, valid_mask, shapes):
+        """
+        Create a coastline overlay on top of the preprocessed image.
+        Returns an RGB float image in the range [0,1].
+        """
+
+        # Normalise the image to range [0,1]
+        rgb = img[:,:,:3].astype(np.float32)
+        
+        vmin = np.nanmin(rgb)
+        vmax = np.nanmax(rgb)
+
+        if vmax <= 1.0 and vmin >= 0.0:
+        # Float is already consistent
+            norm = rgb
+        elif vmax > 1.0 and vmax <= 255.0 and vmin >= 0.0:
+            # uint8 conversion
+            norm = rgb / 255.0
+        else:
+            # Other cases
+            if np.isclose(vmax, vmin):
+                norm = np.clip(rgb - vmin, 0.0, 1.0)  # constant image
+            else:
+                norm = (rgb - vmin) / (vmax - vmin)
+        
+
+        # Apply our valid_mask across all channels
+        mask3d = np.stack([valid_mask, valid_mask, valid_mask], axis = -1)
+        norm[~mask3d] = 0.0
+
+
+        # Upscale and shift into our new coordinate space (used for Marching Squares)
+        shifted = CoastlineExtractor_MS_altseg.upscale_and_shift_cv(norm)
+        shifted_uint8 = (shifted * 255).astype(np.uint8).copy()
+        H,W = shifted.shape[:2]
+
+        # Prepare rgba image for drawing lines
+        overlay_rgba = np.dstack((shifted_uint8, np.full((H,W), 255, dtype = np.uint8)))
+        overlay_rgba = np.ascontiguousarray(overlay_rgba)
+        overlay_bgr = np.ascontiguousarray(overlay_rgba[:, :, :3])
+
+
+        # Draw Lines
+        # Flip the coordinates of our shapes array such that they correctly overlay on top of our image
+        shapes_transformed = [[[x, W - y] for x, y in line] for line in shapes]
+
+        for line in shapes_transformed[:10]:
+            pts = np.array(line, dtype = np.int32).reshape((-1, 1, 2))
+            cv2.polylines(
+                overlay_bgr, 
+                [pts], 
+                isClosed=False, 
+                color=(255, 255, 255), 
+                thickness=1,
+                lineType=cv2.LINE_AA 
+                )
+        overlay_rgba[:, :, :3] = overlay_bgr
+
+
+        #Use alpha channel to blen the overlay with the original shifted image
+        alpha = 0.6
+        rgb_overlay = overlay_rgba[:, :, :3].astype(np.float32) / 255.0
+        alpha_map = (overlay_rgba[:, :, 3].astype(np.float32) / 255.0) * alpha
+
+        out = (alpha_map[..., None] * rgb_overlay) + ((1.0 - alpha_map[..., None]) * shifted)
+        output = np.clip(out, 0, 1)
+
+        return output
+    
+    @staticmethod
     def run(masked_image: _NUMERIC_ARRAY, downsample_factor: float = 1) -> dict[str, Any]:
         preprocessed_image, valid_mask = CoastlineExtractor_MS_altseg._preprocess_image(masked_image, downsample_factor)
         _, threshold_image, threshold_value = CoastlineExtractor_MS_altseg._otsu_segmentation_4channel(preprocessed_image, valid_mask)
+        print("[INFO] Running Marching Squares")
         state_array, x_len, y_len = CoastlineExtractor_MS_altseg._point_array(threshold_image)
         vectors = CoastlineExtractor_MS_altseg._list_vectors(state_array, x_len, y_len)
         shapes = CoastlineExtractor_MS_altseg._vector_shapes(vectors)
         
-        print(f"The length of the list of shapes is {len(shapes)}, the length of the coastline vector is {len(shapes[0])}")
-        overlay = preprocessed_image[:,:,:3]
+        print(f"[STATS] Length of the coastline vector: {len(shapes[0])}")
         
-
-        overlay_f = overlay.astype(np.float32)
-
-        vmin = np.nanmin(overlay_f)
-        vmax = np.nanmax(overlay_f)
-
-        if vmax <= 1.0 and vmin >= 0.0:
-        # already 0..1
-            norm = overlay_f
-        elif vmax > 1.0 and vmax <= 255.0 and vmin >= 0.0:
-            # typical 0..255 uint8
-            norm = overlay_f / 255.0
-        else:
-            # general linear rescale to 0..1 (handles negatives)
-            if np.isclose(vmax, vmin):
-                norm = np.clip(overlay_f - vmin, 0.0, 1.0)  # constant image
-            else:
-                norm = (overlay_f - vmin) / (vmax - vmin)
+        img_overlay = CoastlineExtractor_MS_altseg._create_overlay(preprocessed_image,valid_mask,shapes)
         
-        
-        mask3d = np.stack([valid_mask, valid_mask, valid_mask], axis = -1)
-
-        norm[~mask3d] = 0.0
-
-        shifted_img = CoastlineExtractor_MS_altseg.upscale_and_shift_cv(norm)
-
-        overlay_uint8 = (shifted_img * 255).astype(np.uint8).copy()
-        H,W = shifted_img.shape[:2]
-
-        overlay_rgba = np.dstack((overlay_uint8, np.full((H,W), 255, dtype = np.uint8)))
-
-        overlay_rgba = np.ascontiguousarray(overlay_rgba)
-        overlay_bgr = np.ascontiguousarray(overlay_rgba[:, :, :3])
-
-        #blank = np.zeros((H, W, 3), dtype=np.uint8)
-        #halved_shapes = [[[(x-1) / 2, (y-1) / 2] for x, y in line]for line in shapes]
-        transformed_shapes = [[[x, W - y] for x, y in line] for line in shapes]
-
-        for line in transformed_shapes[:10]:
-            pts = np.array(line, dtype = np.int32).reshape((-1, 1, 2))
-            cv2.polylines(overlay_bgr, [pts], isClosed=False, color=(255, 255, 255), thickness=1,lineType=cv2.LINE_AA )
-
-        # plt.imshow(blank[..., ::-1])  # Convert BGR to RGB for matplotlib
-        # plt.title("Test: Lines on Blank Image")
-        # plt.axis("off")
-        # plt.show()
-
-        overlay_rgba[:, :, :3] = overlay_bgr
-
-        alpha = 0.6
-
-        overlay_rgb_f = overlay_rgba[:, :, :3].astype(np.float32) / 255.0
-        overlay_alpha = (overlay_rgba[:, :, 3].astype(np.float32) / 255.0) * alpha
-
-        out = (overlay_alpha[..., None] * overlay_rgb_f) + ((1.0 - overlay_alpha[..., None]) * shifted_img)
-        output = np.clip(out, 0, 1)
         return {
             "preprocessed_image" : preprocessed_image, 
             "shapes": shapes,
             "vectors": vectors,
             "threshold_image": threshold_image,
-            "overlay_image": output
+            "overlay_image": img_overlay
         }
