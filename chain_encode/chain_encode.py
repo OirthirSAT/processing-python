@@ -23,6 +23,7 @@ class ChainEncode:
         # of MarchingSquares itself (e.g., reading the directions as they're written, rather
         # than recalculating them from the outputs. However, the extra computation time likely
         # to be saved is small in comparison to the execution time of MarchingSquares itself.
+        #TODO More extensive testing is needed to determine whether 3-bit or 4-bit packing is better
         start_coords = []
         chains = []
         chain_lengths = []
@@ -38,7 +39,7 @@ class ChainEncode:
         np.savez_compressed(
             fname,
             start_coords=np.asarray(start_coords, dtype=np.uint16),
-            chains=ChainEncode._pack_3bit(concat_chains),
+            chains=ChainEncode._pack_4bit(concat_chains),
             chain_lengths=np.asarray(chain_lengths, dtype=np.uint32)
         )
 
@@ -48,7 +49,7 @@ class ChainEncode:
         start_coords, packed_concat_chains, chain_lengths = (
             file["start_coords"], file["chains"], file["chain_lengths"]
         )
-        concat_chains = ChainEncode._unpack_3bit(packed_concat_chains)
+        concat_chains = ChainEncode._unpack_4bit(packed_concat_chains)
 
         shapes = []
         pos = 0
@@ -112,7 +113,7 @@ if __name__ == "__main__":
     from marching_squares import MarchingSquares
     ms = MarchingSquares()
     print("Performing Marching Squares")
-    shapes = MarchingSquares.run("../Dundee.tif", 1/4, render=False)
+    shapes = MarchingSquares.run("../Dundee.tif", 1/2, render=False)
     print("Done!")
     # Prove compression+decompression is lossless:
     print("Compressing...")
