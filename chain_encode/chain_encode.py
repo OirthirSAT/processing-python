@@ -18,7 +18,11 @@ class ChainEncode:
 	"""Take the output from Marching Squares and chain-encode it to save as compressed npz"""
 	@staticmethod
 	def chain_encode(shapes, fname="chain_codes.npz"):
-		start_coords = []
+		#TODO this compression step would be faster if it was integrated into the working
+        # of MarchingSquares itself (e.g., reading the directions as they're written, rather
+        # than recalculating them from the outputs. However, the extra computation time likely
+        # to be saved is small in comparison to the execution time of MarchingSquares itself.
+        start_coords = []
 		chains = []
 		chain_lengths = []
 		for shape in shapes:
