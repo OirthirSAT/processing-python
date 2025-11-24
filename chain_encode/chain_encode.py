@@ -18,7 +18,8 @@ DIRECTION_ENCODINGS[DIRECTION_KEYS] = np.arange(8)
 class ChainEncode:
     """Take the output from Marching Squares and chain-encode it to save as compressed npz"""
     @staticmethod
-    def chain_encode(shapes, fname="chain_codes.npz"):
+    def chain_encode(shapes: list[list[tuple[int,int]]], fname="chain_codes.npz"):
+        """Take the shapes list from MarchingSquares and encodes into a compressed NumPy archive."""
         #TODO this compression step would be faster if it was integrated into the working
         # of MarchingSquares itself (e.g., reading the directions as they're written, rather
         # than recalculating them from the outputs. However, the extra computation time likely
@@ -107,21 +108,3 @@ class ChainEncode:
         return unpacked
 
 
-if __name__ == "__main__":
-    import sys
-    sys.path.append("../marching_squares/marching_squares")
-    from marching_squares import MarchingSquares
-    ms = MarchingSquares()
-    print("Performing Marching Squares")
-    shapes = MarchingSquares.run("../Dundee.tif", 1/2, render=False)
-    print("Done!")
-    # Prove compression+decompression is lossless:
-    print("Compressing...")
-    ChainEncode.chain_encode(shapes, "chain_codes.npz")
-    print("Done compressing. Validing compression:")
-    print("Decompressing...")
-    decoded_shapes = ChainEncode.chain_decode("chain_codes.npz")
-    print("Done decompressing, performing validity check:")
-    for s1, s2 in zip(shapes, decoded_shapes):
-        assert np.all(s1==s2)
-    print("All valid.")
