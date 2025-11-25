@@ -1,0 +1,10 @@
+{
+  "mask_coverage": 0.004192829132080078,
+  "dimensions": [
+    4,
+    4096,
+    4096
+  ],
+  "image_path": "../test-images/Aberdyfi.tif",
+  "coastline_contours": 2434
+}

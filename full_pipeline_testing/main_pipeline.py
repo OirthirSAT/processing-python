@@ -103,6 +103,7 @@ def run_cloud_masking(image, image_path):
     print(f"[INFO] Saved cloud mask to {mask_path}")
 
     #Applies the mask to our image
+
     masked = masker.apply_cloud_mask(mask_full)
 
     #Saves the masked image
