@@ -3,7 +3,7 @@ import numpy as np
 from numpy.typing import NDArray
 import cv2
 from typing import Any
-from cloud_mask.cloud_mask import CloudMask
+
 # typedefs
 _NUMERIC_ARRAY = NDArray[np.floating[Any] | np.integer[Any]]
 _POINT = tuple[int, int]
@@ -32,7 +32,7 @@ class CoastlineExtractor_MS_altseg:
         plt.show()
 
     @staticmethod
-    def _preprocess_image(masked_image: _NUMERIC_ARRAY, downsample_factor: float) -> tuple[_NUMERIC_ARRAY,_NUMERIC_ARRAY]:
+    def _preprocess_image(masked_image: _NUMERIC_ARRAY, downsample_factor: np.float32) -> tuple[_NUMERIC_ARRAY,_NUMERIC_ARRAY]:
         """
         Reads a tif file with bgr formatting, resizes the image and applies appropriate
         masking to NaN values and drops border artifacts.
@@ -52,7 +52,7 @@ class CoastlineExtractor_MS_altseg:
                 Mask marking valid pixels after resizing.
         """
         
-        print("[INFO] Preprocessing image for segmentation")
+        # print("[INFO] Preprocessing image for segmentation")
         
         #print(f"Number of nan values before downsampling {np.isnan(masked_image).sum()}")
 
@@ -67,24 +67,26 @@ class CoastlineExtractor_MS_altseg:
             img = np.moveaxis(img, 0, -1)
 
 
-        img = img.astype(float)
+        img = img.astype(np.float32)
 
         # Mask where all channels are finite.
         valid_mask_orig = np.isfinite(img).all(axis=-1)
 
         # If necessary for performance speed, compress the file.
-        new_size: _POINT = (
-            int(img.shape[1] * downsample_factor),
-            int(img.shape[0] * downsample_factor),
-        )
+        # new_size: _POINT = (
+        #     int(img.shape[1] * downsample_factor),
+        #     int(img.shape[0] * downsample_factor),
+        # )
 
-        # Use nearest neighbour interpolation, to avoid interpolating NaNs.
-        img_resized: _NUMERIC_ARRAY = cv2.resize(
-            img, new_size, interpolation=cv2.INTER_NEAREST
-        )
-        mask_resized: _NUMERIC_ARRAY = cv2.resize(
-            valid_mask_orig.astype(np.uint8), new_size, interpolation = cv2.INTER_NEAREST
-            ).astype(bool)
+        # # Use nearest neighbour interpolation, to avoid interpolating NaNs.
+        # img_resized: _NUMERIC_ARRAY = cv2.resize(
+        #     img, new_size, interpolation=cv2.INTER_NEAREST
+        # )
+        # mask_resized: _NUMERIC_ARRAY = cv2.resize(
+        #     valid_mask_orig.astype(np.uint8), new_size, interpolation = cv2.INTER_NEAREST
+        #     ).astype(bool)
+        img_resized = img
+        mask_resized = valid_mask_orig
 
         #print(f"Number of NaN values after downsampling {np.isnan(img_resized).sum()}")
 
@@ -100,7 +102,7 @@ class CoastlineExtractor_MS_altseg:
         return img_resized , mask_resized
 
     @staticmethod
-    def _otsu_segmentation_4channel(preprocessed_image: _NUMERIC_ARRAY, valid_mask: _NUMERIC_ARRAY) -> tuple[float, _NUMERIC_ARRAY]:
+    def _otsu_segmentation_4channel(preprocessed_image: _NUMERIC_ARRAY, valid_mask: _NUMERIC_ARRAY, ndwi_bias=0.1) -> tuple[np.float32, _NUMERIC_ARRAY]:
         """Use OTSU segmentation to classify land and sea.
 
         Uses the Otsu segmentation method to distinguish between land and sea to
@@ -123,14 +125,14 @@ class CoastlineExtractor_MS_altseg:
 
         """
 
-        print("[INFO] Performing Otsu segmentation")
+        # print("[INFO] Performing Otsu segmentation")
         
-        image = preprocessed_image.copy()
+        image = preprocessed_image #.copy() TODO no need to make a copy here
 
 
         # Extract channels 
-        green = image[:,:,1].astype(float)
-        nir = image[:,:,3].astype(float)
+        green = image[:,:,1].astype(np.float32)
+        nir = image[:,:,3].astype(np.float32)
         
 
         # Safely perform NDWI calculation
@@ -140,48 +142,56 @@ class CoastlineExtractor_MS_altseg:
         
         ndwi = (green-nir)/denominator_safe
 
-        valid_ndwi = ndwi[valid_mask]
-        valid_ndwi = valid_ndwi[~np.isnan(valid_ndwi)]
+        # Handle very large arrays without generating 3D arrays
+        valid_ndwi_list = []
+        combined_mask = (valid_mask & ~np.isnan(ndwi)).astype(bool)
+        for row, mask_row in zip(ndwi, combined_mask):
+            valid_ndwi_list.append(row[mask_row])
+        valid_ndwi = np.concatenate(valid_ndwi_list)
+        # valid_ndwi = ndwi[valid_mask] # generates a 4096x4096x4096 array :-(
+        # valid_ndwi = valid_ndwi[~np.isnan(valid_ndwi)]
+        # print(valid_ndwi.shape)
 
 
-        #CoastlineExtractor_MS_altseg.plot_hue_histogram(valid_ndwi,(-1,1))
+        # CoastlineExtractor_MS_altseg.plot_hue_histogram(valid_ndwi,(-1,1))
 
-
+        THRESH_MAX = 2**12
         # Perform Otsu segmentation on uint16 scaled NDWI
-        scaled16 = ((valid_ndwi + 1.0) / 2.0 * 65535.0).clip(0,65535.0).astype(np.uint16)
+        scaled16 = ((valid_ndwi + 1.0) / 2.0 * THRESH_MAX).clip(0,THRESH_MAX).astype(np.uint16)
         
-        #CoastlineExtractor_MS_altseg.plot_hue_histogram(scaled16, range = (0,65535))
+        # CoastlineExtractor_MS_altseg.plot_hue_histogram(scaled16, value_range = (0,THRESH_MAX))
 
         img_for_thresh = scaled16.reshape(-1,1)
 
         threshold_value, threshold_valid = cv2.threshold(
             img_for_thresh, 
-            0, 
-            65535, 
+            0,
+            THRESH_MAX, 
             cv2.THRESH_BINARY + cv2.THRESH_OTSU,
         )
 
 
         # Convert back to original NDWI range (float) to apply thresholding
-        ndwi_thresh = (threshold_value / 65535.0) * 2.0 - 1.0
-        print(f"[STATS] NDWI threshold value: {ndwi_thresh}")
+        ndwi_thresh = (threshold_value / THRESH_MAX) * 2.0 - 1.0 + ndwi_bias
+        # print(f"[STATS] NDWI threshold value: {ndwi_thresh}")
 
-        threshold_full = np.full(ndwi.shape, np.nan, dtype = np.float32)
-        nonan_mask = valid_mask & ~np.isnan(ndwi)
-        threshold_full[valid_mask] = (ndwi[nonan_mask]> ndwi_thresh).astype(np.float32)
-        
+        # threshold_full = np.full(ndwi.shape, np.nan, dtype = np.float32)
+        nonan_mask = (valid_mask & ~np.isnan(ndwi)).astype(bool)
+        # threshold_full[valid_mask] = (ndwi[nonan_mask]> ndwi_thresh).astype(np.float32)
+        threshold_full = (ndwi > ndwi_thresh).astype(np.float32)
+        threshold_full[~nonan_mask] = np.nan
         
         # Create a masked array to hide NaNs
-        masked_image = np.ma.masked_where(np.isnan(threshold_full), threshold_full)
+        # masked_image = np.ma.masked_where(np.isnan(threshold_full), threshold_full)
 
         # Display using a custom colormap
-        cmap = plt.cm.gray  
-        cmap.set_bad(color='red')  # NaNs will show as red
+        # cmap = plt.cm.gray  
+        # cmap.set_bad(color='red')  # NaNs will show as red
 
-        plt.imshow(masked_image, cmap=cmap)
-        plt.colorbar(label='Segmentation Value')
-        plt.title("Thresholded Image with NaNs")
-        plt.show()
+        # plt.imshow(masked_image, cmap=cmap)
+        # plt.colorbar(label='Segmentation Value')
+        # plt.title("Thresholded Image with NaNs")
+        # plt.show()
 
         #set the nan values to 16 such that they will fail any edge generation criteria in Marching Squares. 
         #This ensures regions surrounding masked pixels are vector free.
@@ -430,6 +440,7 @@ class CoastlineExtractor_MS_altseg:
                         # If the start of the shape matches a reversed vector prepend it
                         start_point = vec[0]; shape.insert(0, start_point)
                         vectors_to_remove.remove(idx); matched = True; break
+                break # TODO: I put this here, because the while loop doesn't make sense to me - if a match isn't found the first time, it will never be found
             
             shapes.append(shape)
 
@@ -515,7 +526,7 @@ class CoastlineExtractor_MS_altseg:
         return output
     
     @staticmethod
-    def run(masked_image: _NUMERIC_ARRAY, downsample_factor: float = 1) -> dict[str, Any]:
+    def run(masked_image: _NUMERIC_ARRAY, downsample_factor: np.float32 = 1) -> dict[str, Any]:
         preprocessed_image, valid_mask = CoastlineExtractor_MS_altseg._preprocess_image(masked_image, downsample_factor)
         _, threshold_image, threshold_value = CoastlineExtractor_MS_altseg._otsu_segmentation_4channel(preprocessed_image, valid_mask)
         print("[INFO] Running Marching Squares")

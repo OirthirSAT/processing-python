@@ -1,6 +1,6 @@
 import cv2
 import logging
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
 from typing import Any, cast, Tuple
@@ -9,7 +9,7 @@ EPSILON = 1e-6 # Small constant to avoid division by zero in NDSI calculation
 BIT_DEPTH = 12 # Assumed bit depth of input imagery
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.CRITICAL)
 
 class CloudMask:
     """
@@ -147,8 +147,8 @@ class CloudMask:
             NDSI.
         """
         logger.info("Computing NDSI.")
-        green = self._band_green.astype(float)
-        nir = self._band_nir.astype(float)
+        green = self._band_green.astype(np.float32)
+        nir = self._band_nir.astype(np.float32)
         denominator = green + nir
         denominator[denominator == 0] = EPSILON  # Avoid division by zero
         return cast(NDArray[np.floating[Any]], (green - nir) / denominator)
@@ -171,7 +171,7 @@ class CloudMask:
                     + self._band_nir
                 )
                 / 4
-            ).astype(float)
+            ).astype(np.float32)
             / 2**BIT_DEPTH,  # Normalize based on bit depth (e.g., 12-bit imagery)
         )
 
@@ -186,7 +186,7 @@ class CloudMask:
 
         ndsi: NDArray[np.floating[Any]] = self._compute_ndsi()
         brightness: NDArray[np.floating[Any]] = self._compute_brightness()
-        thermal: NDArray[np.floating[Any]] = self._band_nir.astype(float) / 2**BIT_DEPTH
+        thermal: NDArray[np.floating[Any]] = self._band_nir.astype(np.float32) / 2**BIT_DEPTH
         logger.info("Computing NDSI and brightness statistics for debugging.")
         logger.info("NDSI stats (threshold=%s): min=%s, max=%s, mean=%s", self.ndsi_threshold, ndsi.min(), ndsi.max(), ndsi.mean())
         logger.info("Brightness stats (threshold=%s): min=%s, max=%s, mean=%s", self.brightness_threshold, brightness.min(), brightness.max(), brightness.mean())
@@ -217,7 +217,7 @@ class CloudMask:
         bands = [self._band_red, self._band_green, self._band_blue, self._band_nir]
 
         masked_image = np.array(
-            np.dstack(bands), dtype=float
+            np.dstack(bands), dtype=np.float32
         )  # Shape: (rows, columns, bands). Convert to float to allow NaN values.
         masked_image[cloud_mask, :] = np.nan # Set pixels where cloud_mask is False to NaN
         return masked_image
@@ -226,7 +226,7 @@ class CloudMask:
     def visualise_image(image: NDArray[np.floating[Any]]) -> None:
         plt.figure(figsize=(10, 10))        
         dynamic_range = [250, 600] # Could calculate these dynamically with np.nanquantile rather than hardcoding
-        plt.imshow((image[:, :, :3].clip(dynamic_range[0], dynamic_range[1]).astype(float)-dynamic_range[0])/(dynamic_range[1]-dynamic_range[0]))  # Only visually render RGB channels
+        plt.imshow((image[:, :, :3].clip(dynamic_range[0], dynamic_range[1]).astype(np.float32)-dynamic_range[0])/(dynamic_range[1]-dynamic_range[0]))  # Only visually render RGB channels
         plt.show()
 
     @staticmethod

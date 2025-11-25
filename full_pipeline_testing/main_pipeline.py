@@ -1,20 +1,28 @@
 import os
 import json
-import tifffile
+import logging
+import cv2
+import gc
+import timeit
 import numpy as np
 import matplotlib.pyplot as plt
-from skimage.transform import resize
+# from skimage.transform import resize
 
 from cloud_mask.cloud_mask import CloudMask
+from chain_encode.chain_encode import ChainEncode
 
 #NEW marching squares and segmentation algorithm
-from full_pipeline_testing.modified_coastline_extraction import CoastlineExtractor
-from full_pipeline_testing.marching_squares_refined import MarchingSquaresRefiner
+# from full_pipeline_testing.modified_coastline_extraction import CoastlineExtractor
+# from full_pipeline_testing.marching_squares_refined import MarchingSquaresRefiner
 
 #ORIGINAL marching squares and segmentation algorithm
 from full_pipeline_testing.modified_marching_squares_altseg import CoastlineExtractor_MS_altseg
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.CRITICAL)
+
 #Initiliasing file paths
+images_folder = "../test-images"
 image_path = "../test-images/Aberdyfi.tif"#"raw_landsat_images/Dundee_LC09_204021_20240322.tiff"
 output_dir = "output"
 initialisation_dir = os.path.join(output_dir, "initialisation")
@@ -36,7 +44,7 @@ def normalise_band(band):
 
 def load_image(image_path):
     
-    image = tifffile.imread(image_path) #using the tiffile package from open-cv
+    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED) #using the tiffile package from open-cv
     
     if image.ndim == 2:
         image = image[np.newaxis, :, :]
@@ -44,7 +52,6 @@ def load_image(image_path):
     elif image.shape[-1] <= 4:
         image = np.moveaxis(image, -1, 0) 
     
-    print(f"[INFO] Loaded image: {image.shape}")
     return image
 
 #prints min, max and mean values for each band rgb and nir 
@@ -84,8 +91,8 @@ def run_cloud_masking(image, image_path):
     masker = CloudMask(
         bands=image,
         downsample_factor=0.1,
-        ndsi_threshold=0.5  ,
-        brightness_threshold=0.3,
+        ndsi_threshold=0.2  ,
+        brightness_threshold=0.12,
         thermal_threshold=0.0,
     )
     
@@ -116,9 +123,95 @@ def run_cloud_masking(image, image_path):
     return mask_full, masked
 
 
+def timed_pipeline(image_path, name, out_dir, ndwi_bias=0.08, cm_ndsi=0.4, cm_bright=0.18, cm_therm=0.2):
+    """Cut-down version of pipeline with extra logging and outputs removed."""
+    timings = {}
+    timings["_ndwi_bias"] = ndwi_bias
+    timings["_downsample_factor"] = 1
+    timings["_cm_ndsi_threshold"] = cm_ndsi
+    timings["_cm_brightness_threshold"] = cm_bright
+    timings["_cm_thermal_threshold"] = cm_therm
+    s = timeit.default_timer()
+    image = load_image(image_path)
+    timings["load_image"] = timeit.default_timer() - s
+
+    s = timeit.default_timer()
+    masker = CloudMask(
+        bands=image,
+        downsample_factor=1,
+        ndsi_threshold=cm_ndsi,
+        brightness_threshold=cm_bright,
+        thermal_threshold=cm_therm
+    )
+    
+    # Cloud Mask
+    print("CM", end="..", flush=True)
+    mask = masker.create_cloud_mask()
+    timings["cloud_mask_create"] = timeit.default_timer() - s
+
+    s = timeit.default_timer()
+    masked_image = masker.apply_cloud_mask(mask)
+    timings["cloud_mask_apply"] = timeit.default_timer() - s
+    del image
+    gc.collect()
+
+    plt.imsave(os.path.join(out_dir, f"{name}_binary_mask.png"), mask, cmap="gray")
+    del mask
+    gc.collect()
+    # Marching Squares
+    print("OTSU", end="..", flush=True)
+    s = timeit.default_timer()
+    extractor = CoastlineExtractor_MS_altseg()
+    preprocessed_image, valid_mask = CoastlineExtractor_MS_altseg._preprocess_image(masked_image, 1)
+    timings["marchingsquares_preprocess"] = timeit.default_timer() - s
+
+    s = timeit.default_timer()
+    _, threshold_image, threshold_value = CoastlineExtractor_MS_altseg._otsu_segmentation_4channel(preprocessed_image, valid_mask, ndwi_bias=ndwi_bias)
+    timings["marchingsquares_otsu_segmentation"] = timeit.default_timer() - s
+    del preprocessed_image
+    del valid_mask, threshold_value
+    gc.collect()
+
+    plt.imsave(os.path.join(out_dir, f"{name}_threshold_image.png"), threshold_image, cmap="gray")
+
+    print("Point array", end="..", flush=True)
+    s = timeit.default_timer()
+    state_array, x_len, y_len = CoastlineExtractor_MS_altseg._point_array(threshold_image)
+    timings["marchingsquares_point_array"] = timeit.default_timer() - s
+    del threshold_image
+    gc.collect()
+
+    print("List vectors", end="..", flush=True)
+    s = timeit.default_timer()
+    vectors = CoastlineExtractor_MS_altseg._list_vectors(state_array, x_len, y_len)
+    timings["marchingsquares_list_vectors"] = timeit.default_timer() - s
+    del state_array, x_len, y_len
+    gc.collect()
+
+    print("Vector shapes", end="..", flush=True)
+    s = timeit.default_timer()
+    shapes = CoastlineExtractor_MS_altseg._vector_shapes(vectors)
+    timings["marchingsquares_vector_shapes"] = timeit.default_timer() - s
+    del vectors
+    gc.collect()
+
+    # Chain Encoding
+    print("Chain encode", end="..", flush=True)
+    s = timeit.default_timer()
+    ChainEncode.chain_encode(shapes, os.path.join(out_dir, f"{name}_boundaries.npz"))
+    timings["chain_encode"] = timeit.default_timer() - s
+    del shapes
+    gc.collect()
+
+    with open(os.path.join(out_dir, f"{name}_timings.json"), "w") as f:
+        json.dump(timings, f)
+    
+    return timings
+
 def pipeline(image_path, use_altseg=False):
 
     image = load_image(image_path)
+    print(f"[INFO] Loaded image: {image.shape}")
     show_band_stats(image)
     save_rgb_preview(image)
 
@@ -137,7 +230,7 @@ def pipeline(image_path, use_altseg=False):
         print("[INFO] Using original coastline extraction")
         extractor = CoastlineExtractor_MS_altseg()
         # Runs the extraction code.
-        results = extractor.run(masked_image, 0.1)
+        results = extractor.run(masked_image, 1)
         
         # Note: results dictionary keys should match what the altseg class returns
         # If necessary, modify the keys below to match class
@@ -154,6 +247,10 @@ def pipeline(image_path, use_altseg=False):
         overlay = results["overlay_image"]
         vector_boundary = results["vector_boundary"]
 
+    print("[INFO] Encoding, compressing and saving coastline vectors")
+    ChainEncode.chain_encode(vector_boundary, f"{data_output_dir}/encoded_boundaries.npz")
+
+    print("[INFO] Saving output images")
     # Save the images: binary cloud mask and the image with outlined coastline
     #plt.imsave(f"{data_output_dir}/ndwi.png", results.get("ndwi_image", binary_mask), cmap="gray")
     plt.imsave(f"{data_output_dir}/binary_mask.png", binary_mask, cmap="gray")
@@ -187,4 +284,17 @@ def pipeline(image_path, use_altseg=False):
 
 if __name__ == "__main__":
     # Set use_altseg=True to use the Original Marching Squares and segmentation algorithm
-    pipeline(image_path, use_altseg=True)
+    # pipeline(image_path, use_altseg=True)
+
+    for iter in range(100):
+        output_dir = f"timings_full_extraction_{iter}"
+        os.makedirs(output_dir, exist_ok=True)
+        for img in os.listdir(images_folder)[::-1]:
+            if not img.endswith(".tif"):
+                continue
+            if img[:5] > "Rothe":
+                continue
+            print(f"Processing {img} ({output_dir})... ", end="", flush=True)
+            s = timeit.default_timer()
+            timed_pipeline(os.path.join(images_folder, img), img.split(".")[0], output_dir)
+            print(f"{timeit.default_timer() - s:.3f}s")
