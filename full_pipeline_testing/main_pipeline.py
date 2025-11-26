@@ -1,3 +1,4 @@
+import datetime
 import os
 import json
 import logging
@@ -122,10 +123,12 @@ def run_cloud_masking(image, image_path):
 
     return mask_full, masked
 
+t_estimate = 141/98286
 
-def timed_pipeline(image_path, name, out_dir, ndwi_bias=0.08, cm_ndsi=0.4, cm_bright=0.18, cm_therm=0.2):
+def timed_pipeline(image_path, name, out_dir, ndwi_bias=0.00, cm_ndsi=0.4, cm_bright=0.18, cm_therm=0.2, limit=300_000):
     """Cut-down version of pipeline with extra logging and outputs removed."""
     timings = {}
+    global t_estimate
     timings["_ndwi_bias"] = ndwi_bias
     timings["_downsample_factor"] = 1
     timings["_cm_ndsi_threshold"] = cm_ndsi
@@ -174,24 +177,25 @@ def timed_pipeline(image_path, name, out_dir, ndwi_bias=0.08, cm_ndsi=0.4, cm_br
 
     plt.imsave(os.path.join(out_dir, f"{name}_threshold_image.png"), threshold_image, cmap="gray")
 
-    print("Point array", end="..", flush=True)
-    s = timeit.default_timer()
-    state_array, x_len, y_len = CoastlineExtractor_MS_altseg._point_array(threshold_image)
-    timings["marchingsquares_point_array"] = timeit.default_timer() - s
-    del threshold_image
-    gc.collect()
-
     print("List vectors", end="..", flush=True)
     s = timeit.default_timer()
+    state_array, x_len, y_len = CoastlineExtractor_MS_altseg._point_array(threshold_image)
     vectors = CoastlineExtractor_MS_altseg._list_vectors(state_array, x_len, y_len)
     timings["marchingsquares_list_vectors"] = timeit.default_timer() - s
     del state_array, x_len, y_len
+    del threshold_image
     gc.collect()
+
+    print(f"{len(vectors)} ({t_estimate*len(vectors)})", end="..", flush=True)
+    if len(vectors) > limit:
+        print("Too many vectors, abandoning.")
+        return len(vectors)
 
     print("Vector shapes", end="..", flush=True)
     s = timeit.default_timer()
     shapes = CoastlineExtractor_MS_altseg._vector_shapes(vectors)
     timings["marchingsquares_vector_shapes"] = timeit.default_timer() - s
+    t_estimate = timings["marchingsquares_vector_shapes"] / len(vectors)
     del vectors
     gc.collect()
 
@@ -206,7 +210,7 @@ def timed_pipeline(image_path, name, out_dir, ndwi_bias=0.08, cm_ndsi=0.4, cm_br
     with open(os.path.join(out_dir, f"{name}_timings.json"), "w") as f:
         json.dump(timings, f)
     
-    return timings
+    # return timings
 
 def pipeline(image_path, use_altseg=False):
 
@@ -286,15 +290,31 @@ if __name__ == "__main__":
     # Set use_altseg=True to use the Original Marching Squares and segmentation algorithm
     # pipeline(image_path, use_altseg=True)
 
+    location_vec_lens = [['Torrisdale.tif', '324514'], ['Rothesay.tif', '1340688'], ['River Dee.tif', '1580553'], ['Plymouth.tif', '808635'], ['North Skye.tif', '846323'], ['Norfolk.tif', '513428'], ['Margate.tif', '493659'], ['Magilligan Point.tif', '350840'], ['Kildonan, Arran.tif', '757742'], ['Gwynedd.tif', '730759'], ['Dundee.tif', '624548'], ['Dumbarton.tif', '1339483'], ['Culbin.tif', '1344705'], ['Carlisle.tif', '489310'], ['Barrow-in-Furness.tif', '404664'], ['Balivanich, South Uist.tif', '846323'], ['Aberdyfi.tif', '730759'], ['Winchelsea.tif', '98286'], ['Tredrissi.tif', '111213'], ['Towan Beach, Cornwall.tif', '22876'], ['Torrisdale.tif', '324514'], ['Tiree.tif', '204000'], ['Stromness.tif', '76305'], ['Stoke, Kent.tif', '208146'], ['St Ishmael.tif', '145639'], ['Rothesay.tif', '1340688'], ['Rockcliffe.tif', '107812']]
+
     for iter in range(100):
-        output_dir = f"timings_full_extraction_{iter}"
+        output_dir = f"timings_full_extraction_fixed_{iter}"
         os.makedirs(output_dir, exist_ok=True)
-        for img in os.listdir(images_folder)[::-1]:
+        failed = []
+        # for img in ['Magilligan Point.tif', 'Barrow-in-Furness.tif', 'Carlisle.tif', 'Margate.tif', 'Norfolk.tif', 'Dundee.tif', 'Gwynedd.tif', 'Aberdyfi.tif', 'Kildonan, Arran.tif', 'Plymouth.tif', 'North Skye.tif', 'Balivanich, South Uist.tif', 'Dumbarton.tif', 'Rothesay.tif', 'Culbin.tif', 'River Dee.tif']:
+        # for img in os.listdir(images_folder)[::-1]:
+        print(list(map(lambda x: x, sorted(location_vec_lens, key=lambda loc:int(loc[1])))))
+        for img in map(lambda x: x[0], sorted(location_vec_lens, key=lambda loc:int(loc[1]))):
             if not img.endswith(".tif"):
                 continue
-            if img[:5] > "Rothe":
-                continue
-            print(f"Processing {img} ({output_dir})... ", end="", flush=True)
+            # if img[:5] > "Porta":
+            #     continue
+            print(f"[{datetime.datetime.now()}] Processing {img} ({output_dir})... ", end="", flush=True)
             s = timeit.default_timer()
-            timed_pipeline(os.path.join(images_folder, img), img.split(".")[0], output_dir)
+            err = timed_pipeline(os.path.join(images_folder, img), img.split(".")[0], output_dir, limit=1e9)
+            if err:
+                failed.append(img)
             print(f"{timeit.default_timer() - s:.3f}s")
+        
+        # Compute all images which failed because they were too large in the first pass
+        for img in failed:
+            print(f"[{datetime.datetime.now()}] Processing {img} ({output_dir})... ", end="", flush=True)
+            s = timeit.default_timer()
+            err = timed_pipeline(os.path.join(images_folder, img), img.split(".")[0], output_dir, limit=1e9)
+            print(f"{timeit.default_timer() - s:.3f}s")
+        

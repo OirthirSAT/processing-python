@@ -397,7 +397,7 @@ class CoastlineExtractor_MS_altseg:
         """
         shapes: list[list[_POINT]] = []
         vectors_to_remove: set[int] = set(range(len(vectors)))
-
+        
         while vectors_to_remove:
             shape: list[_POINT] = []
             
@@ -440,7 +440,6 @@ class CoastlineExtractor_MS_altseg:
                         # If the start of the shape matches a reversed vector prepend it
                         start_point = vec[0]; shape.insert(0, start_point)
                         vectors_to_remove.remove(idx); matched = True; break
-                break # TODO: I put this here, because the while loop doesn't make sense to me - if a match isn't found the first time, it will never be found
             
             shapes.append(shape)
 
