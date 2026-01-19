@@ -241,6 +241,7 @@ class MarchingSquares:
 
         return [x for x in vectors if x is not None]  # filtering None values
 
+    # TODO : Preform Optimization
     @staticmethod
     def _vector_shapes(vectors: list[list[_VECTOR]]) -> list[list[_POINT]]:
         """Merge adjacent vector lines into coastline vector.
