@@ -290,16 +290,17 @@ if __name__ == "__main__":
     # Set use_altseg=True to use the Original Marching Squares and segmentation algorithm
     # pipeline(image_path, use_altseg=True)
 
-    location_vec_lens = [['Torrisdale.tif', '324514'], ['Rothesay.tif', '1340688'], ['River Dee.tif', '1580553'], ['Plymouth.tif', '808635'], ['North Skye.tif', '846323'], ['Norfolk.tif', '513428'], ['Margate.tif', '493659'], ['Magilligan Point.tif', '350840'], ['Kildonan, Arran.tif', '757742'], ['Gwynedd.tif', '730759'], ['Dundee.tif', '624548'], ['Dumbarton.tif', '1339483'], ['Culbin.tif', '1344705'], ['Carlisle.tif', '489310'], ['Barrow-in-Furness.tif', '404664'], ['Balivanich, South Uist.tif', '846323'], ['Aberdyfi.tif', '730759'], ['Winchelsea.tif', '98286'], ['Tredrissi.tif', '111213'], ['Towan Beach, Cornwall.tif', '22876'], ['Torrisdale.tif', '324514'], ['Tiree.tif', '204000'], ['Stromness.tif', '76305'], ['Stoke, Kent.tif', '208146'], ['St Ishmael.tif', '145639'], ['Rothesay.tif', '1340688'], ['Rockcliffe.tif', '107812']]
+    location_vec_lens = [['Aberavon.tif', 129819], ['Barra.tif', 204000], ['Coatham.tif', 29282], ['Duncansby.tif', 56400], ['Great Yarmouth.tif', 156591], ['Grimsby.tif', 78436], ['Islay.tif', 116674], ['Lindisfarne.tif', 273129], ['Portavogie.tif', 209615], ['Portsmouth.tif', 258401], ['Rochester.tif', 208146], ['Torrisdale.tif', '324514'], ['River Dee.tif', '1580553'], ['Plymouth.tif', '808635'], ['North Skye.tif', '846323'], ['Norfolk.tif', '513428'], ['Margate.tif', '493659'], ['Magilligan Point.tif', '350840'], ['Kildonan, Arran.tif', '757742'], ['Gwynedd.tif', '730759'], ['Dundee.tif', '624548'], ['Dumbarton.tif', '1339483'], ['Culbin.tif', '1344705'], ['Carlisle.tif', '489310'], ['Barrow-in-Furness.tif', '404664'], ['Balivanich, South Uist.tif', '846323'], ['Aberdyfi.tif', '730759'], ['Winchelsea.tif', '98286'], ['Tredrissi.tif', '111213'], ['Towan Beach, Cornwall.tif', '22876'], ['Tiree.tif', '204000'], ['Stromness.tif', '76305'], ['Stoke, Kent.tif', '208146'], ['St Ishmael.tif', '145639'], ['Rothesay.tif', '1340688'], ['Rockcliffe.tif', '107812']]
 
     for iter in range(100):
         output_dir = f"timings_full_extraction_fixed_{iter}"
         os.makedirs(output_dir, exist_ok=True)
         failed = []
         # for img in ['Magilligan Point.tif', 'Barrow-in-Furness.tif', 'Carlisle.tif', 'Margate.tif', 'Norfolk.tif', 'Dundee.tif', 'Gwynedd.tif', 'Aberdyfi.tif', 'Kildonan, Arran.tif', 'Plymouth.tif', 'North Skye.tif', 'Balivanich, South Uist.tif', 'Dumbarton.tif', 'Rothesay.tif', 'Culbin.tif', 'River Dee.tif']:
-        # for img in os.listdir(images_folder)[::-1]:
-        print(list(map(lambda x: x, sorted(location_vec_lens, key=lambda loc:int(loc[1])))))
+        # print(list(map(lambda x: x, sorted(location_vec_lens, key=lambda loc:int(loc[1])))))
         for img in map(lambda x: x[0], sorted(location_vec_lens, key=lambda loc:int(loc[1]))):
+            if img.replace(".tif", "_boundaries.npz") in os.listdir(output_dir):
+                continue
             if not img.endswith(".tif"):
                 continue
             # if img[:5] > "Porta":
@@ -310,7 +311,7 @@ if __name__ == "__main__":
             if err:
                 failed.append(img)
             print(f"{timeit.default_timer() - s:.3f}s")
-        
+        break
         # Compute all images which failed because they were too large in the first pass
         for img in failed:
             print(f"[{datetime.datetime.now()}] Processing {img} ({output_dir})... ", end="", flush=True)
